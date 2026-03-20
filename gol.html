@@ -12,65 +12,66 @@
       padding: 10px;
       border-radius: 10px;
     }
+    #ui .row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
     canvas { display: block; }
     button, input, select { margin: 5px; }
 
     #playBtn.paused { background: #aa3333; }
     #playBtn.running { background: #33aa33; }
+    /* Make grid button mirror play button styling */
+    #gridBtn.paused { background: #aa3333; }
+    #gridBtn.running { background: #33aa33; }
   </style>
 </head>
 <body>
 
 <div id="ui">
-  <button id="playBtn" class="paused" onclick="togglePlay()">Paused</button>
-
-  <button id="stepBtn" onclick="doStep()">Step</button>
-
-  <button id="resetViewBtn" onclick="resetView()">Reset View</button>
-
-  <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
-
-  Speed: <input type="range" min="1" max="60" value="10" id="speed">
-
-  Brush: <input type="range" min="1" max="10" value="1" id="brushSize">
-
-  <button id="gridBtn" class="paused" onclick="toggleGrid()">Grid: OFF</button>
-
-  <button onclick="clearGrid()">Clear</button>
-
-  <br>
-
-  <div id="stats" style="font-size: 12px; margin-top: 5px;">
-    Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
+  <div class="row">
+    <button id="playBtn" class="paused" onclick="togglePlay()">Paused</button>
+    <button id="stepBtn" onclick="doStep()">Step</button>
+    <button id="resetViewBtn" onclick="resetView()">Reset View</button>
+    <button id="gridBtn" class="paused" onclick="toggleGrid()">Grid: OFF</button>
+    <button onclick="clearGrid()">Clear</button>
+    <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
   </div>
 
-  <br>
+  <div class="row">
+    <label style="margin:0 6px 0 0;">Speed:</label>
+    <input type="range" min="1" max="60" value="10" id="speed">
 
-  Pattern:
-  <select id="patternSelect">
-    <option value="draw">Draw</option>
-    <option value="glider" title="3x3 oscillator">Glider</option>
-    <option value="blinker" title="3x1 period-2">Blinker</option>
-    <option value="toad" title="2x4 period-2">Toad</option>
-    <option value="beacon" title="4x4 period-2">Beacon</option>
-    <option value="pulsar" title="13x13 period-3">Pulsar</option>
-    <option value="lwss" title="5x4 spaceship">LWSS</option>
-    <option value="gosper" title="36x9 gun">Glider Gun</option>
-    <option value="block" title="2x2 still">Block</option>
-    <option value="beehive" title="Still life">Beehive</option>
-    <option value="loaf" title="Still life">Loaf</option>
-    <option value="boat" title="Still life">Boat</option>
-    <option value="tub" title="Still life">Tub</option>
-    <option value="rpentomino" title="Methuselah">R-Pentomino</option>
-    <option value="acorn" title="Methuselah">Acorn</option>
-  </select>
+    <label style="margin:0 6px 0 0;">Brush:</label>
+    <input type="range" min="1" max="10" value="1" id="brushSize">
+  </div>
 
-  <br><br>
+  <div class="row">
+    <label style="margin:0 6px 0 0;">Pattern:</label>
+    <select id="patternSelect">
+      <option value="draw">Draw</option>
+      <option value="glider" title="3x3 oscillator">Glider</option>
+      <option value="blinker" title="3x1 period-2">Blinker</option>
+      <option value="toad" title="2x4 period-2">Toad</option>
+      <option value="beacon" title="4x4 period-2">Beacon</option>
+      <option value="pulsar" title="13x13 period-3">Pulsar</option>
+      <option value="lwss" title="5x4 spaceship">LWSS</option>
+      <option value="gosper" title="36x9 gun">Glider Gun</option>
+      <option value="block" title="2x2 still">Block</option>
+      <option value="beehive" title="Still life">Beehive</option>
+      <option value="loaf" title="Still life">Loaf</option>
+      <option value="boat" title="Still life">Boat</option>
+      <option value="tub" title="Still life">Tub</option>
+      <option value="rpentomino" title="Methuselah">R-Pentomino</option>
+      <option value="acorn" title="Methuselah">Acorn</option>
+    </select>
 
-  <div style="font-size: 11px;">
-    <label>Import RLE:</label><br>
-    <input type="text" id="rleInput" placeholder="Paste RLE string here (e.g., b3o$2bo$3o)" style="width: 180px; font-size: 11px;">
-    <button onclick="importRLE()">Import</button>
+    <span style="font-size:11px; display:inline-block; vertical-align:middle; margin-left:8px;">
+      <label style="margin-right:6px;">Import RLE:</label>
+      <input type="text" id="rleInput" placeholder="Paste RLE string here (e.g., b3o$2bo$3o)" style="width:180px; font-size:11px; vertical-align:middle;">
+      <button onclick="importRLE()">Import</button>
+    </span>
+  </div>
+
+  <div id="stats" style="font-size: 12px; margin-top: 8px;">
+    Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
   </div>
 </div>
 
@@ -176,10 +177,13 @@ function draw(){
     let [x,y]=parse(k);
     let sx=x*cellSize+offsetX;
     let sy=y*cellSize+offsetY;
-    let overlap = Math.max(1, Math.floor(cellSize * 0.04));
+    // draw living cell inset so grid lines remain visible — leave only the grid line thickness gap
+    const gridLineWidth = 1; // keep in sync with grid drawing below
+    let padding = gridLineWidth / 2;
+    let size = Math.max(1, cellSize - gridLineWidth);
 
     if(sx>-cellSize && sy>-cellSize && sx<canvas.width && sy<canvas.height){
-      ctx.fillRect(sx-overlap,sy-overlap,cellSize+overlap*2,cellSize+overlap*2);
+      ctx.fillRect(sx + padding, sy + padding, size, size);
     }
   }
 
