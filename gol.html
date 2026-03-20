@@ -24,25 +24,54 @@
 <div id="ui">
   <button id="playBtn" class="paused" onclick="togglePlay()">Paused</button>
 
+  <button id="stepBtn" onclick="doStep()">Step</button>
+
+  <button id="resetViewBtn" onclick="resetView()">Reset View</button>
+
+  <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
+
   Speed: <input type="range" min="1" max="60" value="10" id="speed">
 
   Brush: <input type="range" min="1" max="10" value="1" id="brushSize">
 
+  <button id="gridBtn" class="paused" onclick="toggleGrid()">Grid: OFF</button>
+
   <button onclick="clearGrid()">Clear</button>
+
+  <br>
+
+  <div id="stats" style="font-size: 12px; margin-top: 5px;">
+    Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
+  </div>
 
   <br>
 
   Pattern:
   <select id="patternSelect">
     <option value="draw">Draw</option>
-    <option value="glider">Glider</option>
-    <option value="blinker">Blinker</option>
-    <option value="toad">Toad</option>
-    <option value="beacon">Beacon</option>
-    <option value="pulsar">Pulsar</option>
-    <option value="lwss">LWSS</option>
-    <option value="gosper">Glider Gun</option>
+    <option value="glider" title="3x3 oscillator">Glider</option>
+    <option value="blinker" title="3x1 period-2">Blinker</option>
+    <option value="toad" title="2x4 period-2">Toad</option>
+    <option value="beacon" title="4x4 period-2">Beacon</option>
+    <option value="pulsar" title="13x13 period-3">Pulsar</option>
+    <option value="lwss" title="5x4 spaceship">LWSS</option>
+    <option value="gosper" title="36x9 gun">Glider Gun</option>
+    <option value="block" title="2x2 still">Block</option>
+    <option value="beehive" title="Still life">Beehive</option>
+    <option value="loaf" title="Still life">Loaf</option>
+    <option value="boat" title="Still life">Boat</option>
+    <option value="tub" title="Still life">Tub</option>
+    <option value="rpentomino" title="Methuselah">R-Pentomino</option>
+    <option value="acorn" title="Methuselah">Acorn</option>
   </select>
+
+  <br><br>
+
+  <div style="font-size: 11px;">
+    <label>Import RLE:</label><br>
+    <input type="text" id="rleInput" placeholder="Paste RLE string here (e.g., b3o$2bo$3o)" style="width: 180px; font-size: 11px;">
+    <button onclick="importRLE()">Import</button>
+  </div>
 </div>
 
 <canvas id="canvas"></canvas>
@@ -60,12 +89,15 @@ let offsetY = 0;
 
 let running = false;
 let grid = new Set();
+let generation = 0;
 
 let drawing = false;
 let panning = false;
 let lastDrawnCell = null;
+let lastDrawCoords = null;
 
 let eraseMode = false;
+let showGrid = false;
 let mouseX = 0;
 let mouseY = 0;
 
@@ -103,25 +135,69 @@ const patterns = {
     [22,1],[22,5],
     [24,0],[24,1],[24,5],[24,6],
     [34,2],[34,3],[35,2],[35,3]
-  ]
+  ],
+  block: [[0,0],[1,0],[0,1],[1,1]],
+  beehive: [[1,0],[2,0],[0,1],[3,1],[1,2],[2,2]],
+  loaf: [[1,0],[2,0],[0,1],[3,1],[1,2],[3,2],[2,3]],
+  boat: [[0,0],[1,0],[0,1],[2,1],[1,2]],
+  tub: [[1,0],[0,1],[1,1],[2,1],[1,2]],
+  rpentomino: [[1,0],[2,0],[0,1],[1,1],[1,2]],
+  acorn: [[1,0],[3,1],[0,2],[1,2],[4,2],[5,2],[6,2]]
 };
 
 const key = (x,y)=>`${x},${y}`;
 const parse = k=>k.split(',').map(Number);
 
+function getPatternBounds(pattern){
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for(let [dx,dy] of pattern){
+    if(dx < minX) minX = dx;
+    if(dy < minY) minY = dy;
+    if(dx > maxX) maxX = dx;
+    if(dy > maxY) maxY = dy;
+  }
+  return {minX, minY, maxX, maxY};
+}
+
+function getPatternAnchor(pattern){
+  let bounds = getPatternBounds(pattern);
+  let centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
+  let centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
+  return {bounds, centerX, centerY};
+}
+
 // Draw
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
   ctx.fillStyle="lime";
 
   for(let k of grid){
     let [x,y]=parse(k);
     let sx=x*cellSize+offsetX;
     let sy=y*cellSize+offsetY;
+    let overlap = Math.max(1, Math.floor(cellSize * 0.04));
 
     if(sx>-cellSize && sy>-cellSize && sx<canvas.width && sy<canvas.height){
-      ctx.fillRect(sx,sy,cellSize,cellSize);
+      ctx.fillRect(sx-overlap,sy-overlap,cellSize+overlap*2,cellSize+overlap*2);
     }
+  }
+
+  if(showGrid){
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    let startX = ((offsetX % cellSize) + cellSize) % cellSize;
+    for(let x = startX; x <= canvas.width; x += cellSize){
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+    }
+    let startY = ((offsetY % cellSize) + cellSize) % cellSize;
+    for(let y = startY; y <= canvas.height; y += cellSize){
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+    }
+    ctx.stroke();
   }
 
   // Brush preview
@@ -135,14 +211,15 @@ function draw(){
   ctx.globalAlpha = 0.5;
   ctx.lineWidth = 2;
 
-  if(mode !== "draw"){
+  if(mode !== "draw" && patterns[mode]){
+    let {bounds, centerX, centerY} = getPatternAnchor(patterns[mode]);
     ctx.strokeRect(
-      gx*cellSize + offsetX,
-      gy*cellSize + offsetY,
-      cellSize * 5,
-      cellSize * 5
+      (gx + bounds.minX - centerX) * cellSize + offsetX,
+      (gy + bounds.minY - centerY) * cellSize + offsetY,
+      (bounds.maxX - bounds.minX + 1) * cellSize,
+      (bounds.maxY - bounds.minY + 1) * cellSize
     );
-  } else {
+  } else if(mode === "draw"){
     ctx.strokeRect(
       gx*cellSize - (brush-1)*cellSize + offsetX,
       gy*cellSize - (brush-1)*cellSize + offsetY,
@@ -193,6 +270,8 @@ function step(){
   }
 
   grid=newGrid;
+  generation++;
+  updateStats();
 }
 
 // Loop
@@ -228,7 +307,118 @@ function updateButton(){
   }
 }
 
-function clearGrid(){ grid.clear(); }
+function updateGridButton(){
+  const btn=document.getElementById("gridBtn");
+  if(showGrid){
+    btn.textContent="Grid: ON";
+    btn.className="running";
+  } else {
+    btn.textContent="Grid: OFF";
+    btn.className="paused";
+  }
+}
+
+function toggleGrid(){
+  showGrid = !showGrid;
+  updateGridButton();
+}
+
+function clearGrid(){ 
+  grid.clear();
+  generation = 0;
+  running = false;
+  updateButton();
+  updateStats();
+}
+
+function updateStats(){
+  document.getElementById("genCount").textContent = generation;
+  document.getElementById("liveCount").textContent = grid.size;
+}
+
+function doStep(){
+  if(!running){
+    step();
+  }
+}
+
+function resetView(){
+  cellSize = 20;
+  offsetX = 0;
+  offsetY = 0;
+}
+
+function parseRLE(rleString){
+  let cells = [];
+  let x = 0, y = 0;
+  let i = 0;
+  
+  while(i < rleString.length){
+    let char = rleString[i];
+    let count = '';
+    
+    while(i < rleString.length && rleString[i] >= '0' && rleString[i] <= '9'){
+      count += rleString[i];
+      i++;
+    }
+    count = count ? parseInt(count) : 1;
+    
+    if(i >= rleString.length) break;
+    let cmd = rleString[i];
+    
+    if(cmd === 'b'){
+      x += count;
+    } else if(cmd === 'o'){
+      for(let j = 0; j < count; j++){
+        cells.push([x + j, y]);
+      }
+      x += count;
+    } else if(cmd === '$'){
+      y += count;
+      x = 0;
+    } else if(cmd === '!'){
+      break;
+    }
+    i++;
+  }
+  
+  return cells;
+}
+
+function importRLE(){
+  let rleText = document.getElementById("rleInput").value.trim();
+  if(!rleText){
+    alert("Please paste an RLE string");
+    return;
+  }
+  
+  try {
+    let cells = parseRLE(rleText);
+    if(cells.length === 0){
+      alert("No cells found in RLE");
+      return;
+    }
+    
+    let patternName = "imported_" + Date.now();
+    patterns[patternName] = cells;
+    
+    let select = document.getElementById("patternSelect");
+    let option = document.createElement("option");
+    option.value = patternName;
+    option.textContent = "Imported";
+    option.title = cells.length + " cells";
+    select.appendChild(option);
+    select.value = patternName;
+    
+    document.getElementById("rleInput").value = "";
+    alert("Pattern imported! (" + cells.length + " cells)");
+  } catch(e){
+    alert("Error parsing RLE: " + e.message);
+  }
+}
+
+updateGridButton();
+updateStats();
 
 // Keys
 window.addEventListener("keydown",e=>{
@@ -238,6 +428,15 @@ window.addEventListener("keydown",e=>{
   }
   if(e.key.toLowerCase()==="e"){
     eraseMode = !eraseMode;
+    if(eraseMode){
+      const patternSelect = document.getElementById("patternSelect");
+      if(patternSelect.value !== "draw"){
+        patternSelect.value = "draw";
+      }
+    }
+  }
+  if(e.key.toLowerCase()==="g"){
+    toggleGrid();
   }
 });
 
@@ -250,6 +449,7 @@ canvas.addEventListener("mousedown",e=>{
     running=false;
     updateButton();
     lastDrawnCell=null;
+    lastDrawCoords=null;
     place(e);
   }
 });
@@ -270,30 +470,20 @@ canvas.addEventListener("mouseup",()=>{
   drawing=false;
   panning=false;
   lastDrawnCell=null;
+  lastDrawCoords=null;
 });
 
 canvas.addEventListener("contextmenu",e=>e.preventDefault());
 
 // Place
-function place(e){
-  let brush=parseInt(document.getElementById("brushSize").value);
-  let mode=document.getElementById("patternSelect").value;
-
-  let x=Math.floor((e.clientX-offsetX)/cellSize);
-  let y=Math.floor((e.clientY-offsetY)/cellSize);
-
-  let k=key(x,y);
-  if(k===lastDrawnCell) return;
-  lastDrawnCell=k;
-
+function paintCell(x,y,mode,brush,erase){
   if(mode!=="draw"){
+    let {centerX, centerY} = getPatternAnchor(patterns[mode]);
     for(let [dx,dy] of patterns[mode]){
-      grid.add(key(x+dx,y+dy));
+      grid.add(key(x + dx - centerX, y + dy - centerY));
     }
     return;
   }
-
-  let erase = eraseMode;
 
   for(let dx=-brush+1;dx<brush;dx++){
     for(let dy=-brush+1;dy<brush;dy++){
@@ -302,6 +492,33 @@ function place(e){
       else grid.add(cell);
     }
   }
+}
+
+function place(e){
+  let brush=parseInt(document.getElementById("brushSize").value);
+  let mode=document.getElementById("patternSelect").value;
+  let erase = eraseMode;
+
+  let x=Math.floor((e.clientX-offsetX)/cellSize);
+  let y=Math.floor((e.clientY-offsetY)/cellSize);
+
+  let lineStart = lastDrawCoords || [x,y];
+  let dx = x - lineStart[0];
+  let dy = y - lineStart[1];
+  let steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+
+  for(let i=0;i<=steps;i++){
+    let tx = lineStart[0] + Math.round(dx * i / steps);
+    let ty = lineStart[1] + Math.round(dy * i / steps);
+    let k = key(tx,ty);
+
+    if(k === lastDrawnCell && i !== steps) continue;
+    lastDrawnCell = k;
+
+    paintCell(tx, ty, mode, brush, erase);
+  }
+
+  lastDrawCoords = [x, y];
 }
 
 // Zoom
