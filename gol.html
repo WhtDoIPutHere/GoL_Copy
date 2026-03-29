@@ -30,6 +30,89 @@
     #heatmapBtn.running { background: #33aa33; }
     #colorsBtn.paused { background: #aa3333; }
     #colorsBtn.running { background: #33aa33; }
+
+    #rulesContainer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    #rulesMenuBtn {
+      background: #445;
+      padding: 5px 10px;
+      border: 1px solid #666;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    #rulesMenuBtn:hover {
+      background: #556;
+    }
+
+    #rulesMenu {
+      display: none;
+      position: absolute;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid #666;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 5px;
+      z-index: 1000;
+      min-width: 250px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    #rulesMenu.open {
+      display: block;
+    }
+
+    .rule-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .rule-row label {
+      width: 120px;
+      text-align: right;
+    }
+
+    .rule-row input {
+      width: 50px;
+      padding: 4px;
+      background: #222;
+      border: 1px solid #555;
+      color: white;
+      border-radius: 3px;
+    }
+
+    .rule-row input:focus {
+      outline: none;
+      border: 1px solid #88ff88;
+    }
+
+    #rulesMenuBtn.modified {
+      background: #aa8833;
+    }
+
+    #rulesResetBtn {
+      background: #aa3333;
+      padding: 4px 8px;
+      border: 1px solid #666;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      margin-top: 8px;
+    }
+
+    #rulesResetBtn:hover {
+      background: #bb4444;
+    }
   </style>
 </head>
 <body>
@@ -82,7 +165,31 @@
     Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
   </div>
 
-  <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555; margin-top: 8px;"></canvas>
+  <div style="position: relative; display: flex; align-items: flex-start; gap: 8px;">
+    <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555;"></canvas>
+    
+    <div id="rulesContainer">
+      <button id="rulesMenuBtn" onclick="toggleRulesMenu()">Rules ⚙</button>
+      
+      <div id="rulesMenu">
+        <div class="rule-row">
+          <label>Born at:</label>
+          <input type="number" id="bornAt" min="0" max="8" value="3">
+        </div>
+        <div class="rule-row">
+          <label>Survives with:</label>
+          <input type="number" id="survivesLow" min="0" max="8" value="2">
+          -
+          <input type="number" id="survivesHigh" min="0" max="8" value="3">
+        </div>
+        <div class="rule-row">
+          <label>Overcrowded at:</label>
+          <input type="number" id="overcrowdedAt" min="0" max="8" value="4">
+        </div>
+        <button id="rulesResetBtn" onclick="resetRules()">Reset to Default</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <canvas id="canvas"></canvas>
@@ -118,6 +225,14 @@ let populationHistory = [];
 let cellAges = new Map();
 let mouseX = 0;
 let mouseY = 0;
+
+// Custom Rules
+let rules = {
+  bornAt: 3,
+  survivesLow: 2,
+  survivesHigh: 3,
+  overcrowdedAt: 4
+};
 
 // Patterns
 const patterns = {
@@ -208,6 +323,50 @@ function getAgeColor(age){
   }
 
   return "lime";
+}
+
+// Rules UI
+function toggleRulesMenu(){
+  const menu = document.getElementById("rulesMenu");
+  menu.classList.toggle("open");
+}
+
+function updateRulesFromUI(){
+  rules.bornAt = Math.max(0, Math.min(8, parseInt(document.getElementById("bornAt").value) || 3));
+  rules.survivesLow = Math.max(0, Math.min(8, parseInt(document.getElementById("survivesLow").value) || 2));
+  rules.survivesHigh = Math.max(0, Math.min(8, parseInt(document.getElementById("survivesHigh").value) || 3));
+  rules.overcrowdedAt = Math.max(0, Math.min(8, parseInt(document.getElementById("overcrowdedAt").value) || 4));
+  
+  updateRulesButton();
+}
+
+function updateRulesButton(){
+  const btn = document.getElementById("rulesMenuBtn");
+  const isDefault = rules.bornAt === 3 && rules.survivesLow === 2 && rules.survivesHigh === 3 && rules.overcrowdedAt === 4;
+  
+  if(!isDefault){
+    btn.classList.add("modified");
+    btn.textContent = `Rules ⚙ (B${rules.bornAt}/S${rules.survivesLow}-${rules.survivesHigh})`;
+  } else {
+    btn.classList.remove("modified");
+    btn.textContent = "Rules ⚙";
+  }
+}
+
+function resetRules(){
+  rules = {
+    bornAt: 3,
+    survivesLow: 2,
+    survivesHigh: 3,
+    overcrowdedAt: 4
+  };
+  
+  document.getElementById("bornAt").value = 3;
+  document.getElementById("survivesLow").value = 2;
+  document.getElementById("survivesHigh").value = 3;
+  document.getElementById("overcrowdedAt").value = 4;
+  
+  updateRulesButton();
 }
 
 // Draw
@@ -350,7 +509,11 @@ function step(){
     let n=getNeighbors(x,y);
     let alive=grid.has(k);
 
-    if((alive&&(n===2||n===3))||(!alive&&n===3)){
+    // Custom rules: B{bornAt}/S{survivesLow}-{survivesHigh}
+    let survives = alive && n >= rules.survivesLow && n <= rules.survivesHigh;
+    let born = !alive && n === rules.bornAt;
+
+    if(survives || born){
       newGrid.add(k);
     }
   }
@@ -543,6 +706,22 @@ updateEraseButton();
 updateColorButton();
 updateHeatmapButton();
 updateStats();
+
+// Rules input listeners
+document.getElementById("bornAt").addEventListener("change", updateRulesFromUI);
+document.getElementById("survivesLow").addEventListener("change", updateRulesFromUI);
+document.getElementById("survivesHigh").addEventListener("change", updateRulesFromUI);
+document.getElementById("overcrowdedAt").addEventListener("change", updateRulesFromUI);
+
+// Close rules menu when clicking outside
+document.addEventListener("click", (e) => {
+  const rulesMenu = document.getElementById("rulesMenu");
+  const rulesBtn = document.getElementById("rulesMenuBtn");
+  
+  if(!rulesMenu.contains(e.target) && !rulesBtn.contains(e.target)){
+    rulesMenu.classList.remove("open");
+  }
+});
 
 // Keys
 window.addEventListener("keydown",e=>{
