@@ -30,6 +30,17 @@
     #heatmapBtn.running { background: #33aa33; }
     #colorsBtn.paused { background: #aa3333; }
     #colorsBtn.running { background: #33aa33; }
+
+    input[type="number"] {
+      -webkit-appearance: none;
+      -moz-appearance: textfield;
+      width: 25px;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
   </style>
 </head>
 <body>
@@ -86,16 +97,19 @@
     <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555;"></canvas>
 
     <div id="rulesMenu" style="margin-left: 10px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 10px;">
-      <div style="margin-bottom: 5px;">
-        <label>Born at <input type="number" id="bornInput" min="0" max="8" value="3" onchange="updateRules()"> neighbors</label>
+      <button id="toggleRulesBtn" onclick="toggleRulesMenu()">Rules ▼</button>
+      <div id="rulesContent" style="display: block;">
+        <div style="margin-bottom: 5px;">
+          <label>Born at <input type="number" id="bornInput" min="0" max="8" value="3" onchange="updateRules()"> neighbors</label>
+        </div>
+        <div style="margin-bottom: 5px;">
+          <label>Overcrowded at <input type="number" id="overcrowdedInput" min="0" max="8" value="3" onchange="updateRules()"> neighbors</label>
+        </div>
+        <div style="margin-bottom: 5px;">
+          <label>Lonely at <input type="number" id="lonelyInput" min="0" max="8" value="2" onchange="updateRules()"> neighbors</label>
+        </div>
+        <button id="resetRulesBtn" onclick="resetRules()">Reset</button>
       </div>
-      <div style="margin-bottom: 5px;">
-        <label>Overcrowded at <input type="number" id="overcrowdedInput" min="0" max="8" value="3" onchange="updateRules()"> neighbors</label>
-      </div>
-      <div style="margin-bottom: 5px;">
-        <label>Lonely at <input type="number" id="lonelyInput" min="0" max="8" value="2" onchange="updateRules()"> neighbors</label>
-      </div>
-      <button id="resetRulesBtn" onclick="resetRules()">[Reset]</button>
     </div>
   </div>
 </div>
@@ -563,6 +577,18 @@ function resetRules() {
   document.getElementById("overcrowdedInput").value = 3;
   document.getElementById("lonelyInput").value = 2;
   updateRules();
+}
+
+function toggleRulesMenu() {
+  const content = document.getElementById("rulesContent");
+  const btn = document.getElementById("toggleRulesBtn");
+  if (content.style.display === "none") {
+    content.style.display = "block";
+    btn.textContent = "Rules ▼";
+  } else {
+    content.style.display = "none";
+    btn.textContent = "Rules ▶";
+  }
 }
 
 updateGridButton();
