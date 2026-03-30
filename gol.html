@@ -98,10 +98,13 @@
     <div id="surviveBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
     <div style="font-size:12px; margin-bottom:6px;">Birth (dead becomes alive):</div>
     <div id="birthBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
-    <div style="display:flex; gap:8px; justify-content:space-between;">
+    <div style="display:flex; gap:8px; justify-content:space-between; align-items:center;">
       <div style="display:flex; gap:6px;">
         <button onclick="selectAll('survive')">All</button>
         <button onclick="clearAll('survive')">Clear</button>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button onclick="resetRules()" title="Reset rules to default B3/S23">Reset</button>
       </div>
       <div style="display:flex; gap:6px;">
         <button onclick="selectAll('birth')">All</button>
@@ -587,7 +590,7 @@ function renderRuleBoxes(){
     // survive
     let sb = document.createElement('label');
     sb.className = 'rule-checkbox';
-    sb.title = `Survive if neighbors === ${i}`;
+    sb.title = `Survive if neighbors = ${i}`;
     sb.innerHTML = `<input type="checkbox" id="survive_${i}" ${survivalSet.has(i)?'checked':''} />${i}`;
     surviveContainer.appendChild(sb);
     document.getElementById(`survive_${i}`).addEventListener('change', (e)=> onRuleCheckboxChange('survive', i, e.target.checked));
@@ -595,7 +598,7 @@ function renderRuleBoxes(){
     // birth
     let bb = document.createElement('label');
     bb.className = 'rule-checkbox';
-    bb.title = `Birth if neighbors === ${i}`;
+    bb.title = `Birth if neighbors = ${i}`;
     bb.innerHTML = `<input type="checkbox" id="birth_${i}" ${birthSet.has(i)?'checked':''} />${i}`;
     birthContainer.appendChild(bb);
     document.getElementById(`birth_${i}`).addEventListener('change', (e)=> onRuleCheckboxChange('birth', i, e.target.checked));
@@ -636,6 +639,13 @@ function clearAll(which){
     birthSet.clear();
   }
   renderRuleBoxes();
+}
+
+function resetRules(){
+  survivalSet = new Set([2,3]);
+  birthSet = new Set([3]);
+  renderRuleBoxes();
+  updateRuleString();
 }
 
 // Rules panel toggling
