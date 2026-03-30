@@ -34,8 +34,12 @@
     #rulesBtn.running { background: #33aa33; }
 
     /* small styles for rule checkboxes */
-    .rule-checkbox { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #444; border-radius:4px; background:#161616; color:#ddd; font-size:12px; cursor:pointer; }
-    .rule-checkbox input { width:16px; height:16px; margin:0; }
+    .rule-checkbox { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #444; border-radius:4px; background:#161616; color:#ddd; font-size:12px; cursor:pointer; position:relative; }
+    .rule-checkbox input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+    .rule-checkbox .rule-num { pointer-events:none; }
+    .rule-checkbox .rule-check { position:absolute; font-size:14px; color:lime; pointer-events:none; opacity:0; }
+    .rule-checkbox input:checked + .rule-num { display:none; }
+    .rule-checkbox input:checked + .rule-num + .rule-check { opacity:1; }
   </style>
 </head>
 <body>
@@ -93,22 +97,13 @@
 
   <!-- Rules panel: absolute so opening doesn't change UI layout -->
   <div id="rulesPanel" style="display:none; position:absolute; top:120px; left:10px; background: rgba(0,0,0,0.85); padding:10px; border-radius:8px; z-index:999; width:260px;">
-    <div style="font-size:13px; margin-bottom:6px;">Rules (<span id="ruleString">B3/S23</span>)</div>
     <div style="font-size:12px; margin-bottom:6px;">Survive (alive stays alive):</div>
     <div id="surviveBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
     <div style="font-size:12px; margin-bottom:6px;">Birth (dead becomes alive):</div>
     <div id="birthBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
     <div style="display:flex; gap:8px; justify-content:space-between; align-items:center;">
       <div style="display:flex; gap:6px;">
-        <button onclick="selectAll('survive')">All</button>
-        <button onclick="clearAll('survive')">Clear</button>
-      </div>
-      <div style="display:flex; gap:6px;">
         <button onclick="resetRules()" title="Reset rules to default B3/S23">Reset</button>
-      </div>
-      <div style="display:flex; gap:6px;">
-        <button onclick="selectAll('birth')">All</button>
-        <button onclick="clearAll('birth')">Clear</button>
       </div>
     </div>
   </div>
@@ -591,7 +586,7 @@ function renderRuleBoxes(){
     let sb = document.createElement('label');
     sb.className = 'rule-checkbox';
     sb.title = `Survive if neighbors = ${i}`;
-    sb.innerHTML = `<input type="checkbox" id="survive_${i}" ${survivalSet.has(i)?'checked':''} />${i}`;
+    sb.innerHTML = `<input type="checkbox" id="survive_${i}" ${survivalSet.has(i)?'checked':''} /><span class="rule-num">${i}</span><span class="rule-check">✓</span>`;
     surviveContainer.appendChild(sb);
     document.getElementById(`survive_${i}`).addEventListener('change', (e)=> onRuleCheckboxChange('survive', i, e.target.checked));
 
@@ -599,7 +594,7 @@ function renderRuleBoxes(){
     let bb = document.createElement('label');
     bb.className = 'rule-checkbox';
     bb.title = `Birth if neighbors = ${i}`;
-    bb.innerHTML = `<input type="checkbox" id="birth_${i}" ${birthSet.has(i)?'checked':''} />${i}`;
+    bb.innerHTML = `<input type="checkbox" id="birth_${i}" ${birthSet.has(i)?'checked':''} /><span class="rule-num">${i}</span><span class="rule-check">✓</span>`;
     birthContainer.appendChild(bb);
     document.getElementById(`birth_${i}`).addEventListener('change', (e)=> onRuleCheckboxChange('birth', i, e.target.checked));
   }
