@@ -389,23 +389,70 @@ function parseRLE(rleString){
   return cells;
 }
 
-function importRLE(){
+async function fetchRLEFromURL(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Network response not ok ('+res.status+')');
+  const text = await res.text();
+
+  // Try to locate an RLE header `x = ...` then extract until the terminating `!`
+  const headerIdx = text.search(/x\s*=\s*\d+/i);
+  if(headerIdx === -1){
+    // try to find inside <pre> blocks
+    const preMatch = text.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+    if(preMatch){
+      const pre = preMatch[1];
+      const preHeader = pre.search(/x\s*=\s*\d+/i);
+      if(preHeader !== -1){
+        const start = pre.indexOf('x', preHeader);
+        const end = pre.indexOf('!', start);
+        if(end !== -1){
+          const block = pre.substring(start, end+1);
+          const lines = block.split(/\r?\n/);
+          lines.shift();
+          return lines.join('').replace(/\s+/g,'');
+        }
+      }
+    }
+    throw new Error('No RLE header found on page');
+  }
+
+  const exIdx = text.indexOf('!', headerIdx);
+  if(exIdx === -1) throw new Error('No terminating "!" found for RLE on page');
+  const block = text.substring(headerIdx, exIdx+1);
+  const lines = block.split(/\r?\n/);
+  lines.shift();
+  const rle = lines.join('').replace(/\s+/g,'');
+  return rle;
+}
+
+async function importRLE(){
   let rleText = document.getElementById("rleInput").value.trim();
   if(!rleText){
-    alert("Please paste an RLE string");
+    alert("Please paste an RLE string or a pattern URL");
     return;
   }
-  
+
+  // If the user pasted a URL, attempt to fetch and extract the RLE
+  if(/^https?:\/\//i.test(rleText)){
+    try{
+      const fetched = await fetchRLEFromURL(rleText);
+      rleText = fetched;
+    } catch(e){
+      alert('Failed to fetch RLE from URL: ' + e.message + '\nIf the site blocks cross-origin requests, open the pattern page, click the raw/RLE view and paste the RLE text here.');
+      return;
+    }
+  }
+
   try {
     let cells = parseRLE(rleText);
     if(cells.length === 0){
       alert("No cells found in RLE");
       return;
     }
-    
+
     let patternName = "imported_" + Date.now();
     patterns[patternName] = cells;
-    
+
     let select = document.getElementById("patternSelect");
     let option = document.createElement("option");
     option.value = patternName;
@@ -413,7 +460,7 @@ function importRLE(){
     option.title = cells.length + " cells";
     select.appendChild(option);
     select.value = patternName;
-    
+
     document.getElementById("rleInput").value = "";
     alert("Pattern imported! (" + cells.length + " cells)");
   } catch(e){
