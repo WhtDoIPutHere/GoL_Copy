@@ -18,9 +18,28 @@
 
     #playBtn.paused { background: #aa3333; }
     #playBtn.running { background: #33aa33; }
-    /* Make grid button mirror play button styling */
     #gridBtn.paused { background: #aa3333; }
     #gridBtn.running { background: #33aa33; }
+    #eraseBtn.paused { background: #aa3333; }
+    #eraseBtn.running { background: #33aa33; }
+    #fullCellBtn.paused { background: #aa3333; }
+    #fullCellBtn.running { background: #33aa33; }
+    #colorsBtn.paused { background: #aa3333; }
+    #colorsBtn.running { background: #33aa33; }
+    #heatmapBtn.paused { background: #aa3333; }
+    #heatmapBtn.running { background: #33aa33; }
+    #colorsBtn.paused { background: #aa3333; }
+    #colorsBtn.running { background: #33aa33; }
+    #rulesBtn.paused { background: #aa3333; }
+    #rulesBtn.running { background: #33aa33; }
+
+    /* small styles for rule checkboxes */
+    .rule-checkbox { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #444; border-radius:4px; background:#161616; color:#ddd; font-size:12px; cursor:pointer; position:relative; }
+    .rule-checkbox input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+    .rule-checkbox .rule-num { pointer-events:none; }
+    .rule-checkbox .rule-check { position:absolute; font-size:14px; color:lime; pointer-events:none; opacity:0; }
+    .rule-checkbox input:checked + .rule-num { display:none; }
+    .rule-checkbox input:checked + .rule-num + .rule-check { opacity:1; }
   </style>
 </head>
 <body>
@@ -28,9 +47,14 @@
 <div id="ui">
   <div class="row">
     <button id="playBtn" class="paused" onclick="togglePlay()">Paused</button>
+    <button id="gridBtn" class="paused" onclick="toggleGrid()">Grid</button>
+    <button id="eraseBtn" class="paused" onclick="toggleErase()">Erase</button>
+    <button id="fullCellBtn" class="paused" onclick="toggleFullCell()">Full Cell</button>
+    <button id="colorsBtn" class="paused" onclick="toggleColors()">Colors</button>
+    <button id="heatmapBtn" class="paused" onclick="toggleHeatmap()">Heatmap</button>
+    <button id="rulesBtn" class="paused" onclick="toggleRules()">Rules</button>
     <button id="stepBtn" onclick="doStep()">Step</button>
     <button id="resetViewBtn" onclick="resetView()">Reset View</button>
-    <button id="gridBtn" class="paused" onclick="toggleGrid()">Grid: OFF</button>
     <button onclick="clearGrid()">Clear</button>
     <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
   </div>
@@ -63,16 +87,27 @@
       <option value="acorn" title="Methuselah">Acorn</option>
     </select>
 
-    <span style="font-size:11px; display:inline-block; vertical-align:middle; margin-left:8px;">
-      <label style="margin-right:6px;">Import RLE:</label>
-      <input type="text" id="rleInput" placeholder="Paste RLE string here (e.g., b3o$2bo$3o)" style="width:180px; font-size:11px; vertical-align:middle;">
-      <button onclick="importRLE()">Import</button>
-    </span>
   </div>
 
   <div id="stats" style="font-size: 12px; margin-top: 8px;">
     Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
   </div>
+
+  <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555; margin-top: 8px;"></canvas>
+
+  <!-- Rules panel: absolute so opening doesn't change UI layout -->
+  <div id="rulesPanel" style="display:none; position:absolute; top:120px; left:10px; background: rgba(0,0,0,0.85); padding:10px; border-radius:8px; z-index:999; width:260px;">
+    <div style="font-size:12px; margin-bottom:6px;">Survive (alive stays alive):</div>
+    <div id="surviveBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
+    <div style="font-size:12px; margin-bottom:6px;">Birth (dead becomes alive):</div>
+    <div id="birthBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
+    <div style="display:flex; gap:8px; justify-content:space-between; align-items:center;">
+      <div style="display:flex; gap:6px;">
+        <button onclick="resetRules()" title="Reset rules to default B3/S23">Reset</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <canvas id="canvas"></canvas>
@@ -98,9 +133,20 @@ let lastDrawnCell = null;
 let lastDrawCoords = null;
 
 let eraseMode = false;
+let previousPattern = "draw";
 let showGrid = false;
+let fullCellMode = false;
+let orthoAxis = null; // null = undecided, 'x' or 'y'
+let colorMode = false;
+let heatmapMode = false;
+let populationHistory = [];
+let cellAges = new Map();
 let mouseX = 0;
 let mouseY = 0;
+
+// Rule sets (default Conway B3/S23)
+let survivalSet = new Set([2,3]);
+let birthSet = new Set([3]);
 
 // Patterns
 const patterns = {
@@ -167,11 +213,35 @@ function getPatternAnchor(pattern){
   return {bounds, centerX, centerY};
 }
 
+function getAgeColor(age){
+  const baseColors = [
+    'rgb(157,220,21)',  // young
+    'rgb(255,213,57)',  // 2nd stage
+    'rgb(245,143,32)',  // 3rd stage
+    'rgb(202,32,77)'    // oldest
+  ];
+
+  if(heatmapMode){
+    // Heatmap: gradient from cool to hot by age (clamp age 0..20)
+    const maxAge = 20;
+    const t = Math.min(age, maxAge) / maxAge;
+    const r = Math.round(60 + (240 - 60) * t);
+    const g = Math.round(180 - (180 - 40) * t);
+    const b = Math.round(220 - (220 - 70) * t);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  if(colorMode){
+    let index = Math.min(age, baseColors.length - 1);
+    return baseColors[index];
+  }
+
+  return "lime";
+}
+
 // Draw
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  ctx.fillStyle="lime";
 
   for(let k of grid){
     let [x,y]=parse(k);
@@ -183,11 +253,24 @@ function draw(){
     let size = Math.max(1, cellSize - gridLineWidth);
 
     if(sx>-cellSize && sy>-cellSize && sx<canvas.width && sy<canvas.height){
-      ctx.fillRect(sx + padding, sy + padding, size, size);
+      // Set fill style based on color or heatmap mode
+      if(colorMode || heatmapMode){
+        let age = cellAges.get(k) || 0;
+        ctx.fillStyle = getAgeColor(age);
+      } else {
+        ctx.fillStyle = "lime";
+      }
+
+      if(fullCellMode){
+        ctx.fillRect(sx - 1, sy - 1, cellSize + 2, cellSize + 2);
+      } else {
+        ctx.fillRect(sx + padding, sy + padding, size, size);
+      }
     }
   }
 
-  if(showGrid){
+  const minGridCellSize = 8; // below this, hide grid to reduce visual noise
+  if(showGrid && cellSize >= minGridCellSize){
     ctx.strokeStyle = "rgba(255,255,255,0.2)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -202,6 +285,8 @@ function draw(){
       ctx.lineTo(canvas.width, y);
     }
     ctx.stroke();
+  } else if(showGrid && cellSize < minGridCellSize) {
+    // keep the helper state on, but do not draw the visual grid at extreme zoom levels
   }
 
   // Brush preview
@@ -233,6 +318,32 @@ function draw(){
   }
 
   ctx.globalAlpha = 1;
+
+  // Draw population graph
+  const graphCanvas = document.getElementById("graphCanvas");
+  const graphCtx = graphCanvas.getContext("2d");
+  graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+  if (populationHistory.length > 1) {
+    graphCtx.strokeStyle = "lime";
+    graphCtx.lineWidth = 1;
+    graphCtx.beginPath();
+
+    const maxPop = Math.max(...populationHistory);
+    const scaleY = maxPop > 0 ? graphCanvas.height / maxPop : 1;
+    const stepX = graphCanvas.width / (populationHistory.length - 1);
+
+    for (let i = 0; i < populationHistory.length; i++) {
+      const x = i * stepX;
+      const y = graphCanvas.height - (populationHistory[i] * scaleY);
+      if (i === 0) {
+        graphCtx.moveTo(x, y);
+      } else {
+        graphCtx.lineTo(x, y);
+      }
+    }
+    graphCtx.stroke();
+  }
 }
 
 // Simulation
@@ -268,14 +379,25 @@ function step(){
     let n=getNeighbors(x,y);
     let alive=grid.has(k);
 
-    if((alive&&(n===2||n===3))||(!alive&&n===3)){
+    // Use customizable rules (birthSet / survivalSet)
+    if((alive && survivalSet.has(n)) || (!alive && birthSet.has(n))){
       newGrid.add(k);
     }
   }
 
   grid=newGrid;
+
+  // Update cell ages
+  let newAges = new Map();
+  for(let k of grid){
+    newAges.set(k, cellAges.has(k) ? cellAges.get(k) + 1 : 0);
+  }
+  cellAges = newAges;
+
   generation++;
   updateStats();
+  populationHistory.push(grid.size);
+  if(populationHistory.length > 200) populationHistory.shift();
 }
 
 // Loop
@@ -314,10 +436,10 @@ function updateButton(){
 function updateGridButton(){
   const btn=document.getElementById("gridBtn");
   if(showGrid){
-    btn.textContent="Grid: ON";
+    btn.textContent="Grid";
     btn.className="running";
   } else {
-    btn.textContent="Grid: OFF";
+    btn.textContent="Grid";
     btn.className="paused";
   }
 }
@@ -327,10 +449,103 @@ function toggleGrid(){
   updateGridButton();
 }
 
+function updateFullCellButton(){
+  const btn = document.getElementById("fullCellBtn");
+  if(fullCellMode){
+    btn.textContent = "Full Cell";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Full Cell";
+    btn.className = "paused";
+  }
+}
+
+function toggleFullCell(){
+  fullCellMode = !fullCellMode;
+  updateFullCellButton();
+}
+function updateHeatmapButton(){
+  const btn = document.getElementById("heatmapBtn");
+  if(heatmapMode){
+    btn.textContent = "Heatmap";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Heatmap";
+    btn.className = "paused";
+  }
+}
+
+function toggleHeatmap(){
+  heatmapMode = !heatmapMode;
+  if(heatmapMode){
+    colorMode = false;
+    updateColorButton();
+  }
+  updateHeatmapButton();
+}
+function updateColorButton(){
+  const btn = document.getElementById("colorsBtn");
+  if(colorMode){
+    btn.textContent = "Colors";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Colors";
+    btn.className = "paused";
+  }
+}
+
+function toggleColors(){
+  colorMode = !colorMode;
+  if(colorMode){
+    heatmapMode = false;
+    updateHeatmapButton();
+  }
+  updateColorButton();
+}
+
+function updateEraseButton(){
+  const btn = document.getElementById("eraseBtn");
+  if(eraseMode){
+    btn.textContent = "Erase";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Erase";
+    btn.className = "paused";
+  }
+}
+
+function toggleErase(){
+  const patternSelect = document.getElementById("patternSelect");
+
+  if(!eraseMode){
+    // Enter erase mode: remember current brush and switch to draw
+    previousPattern = patternSelect.value;
+    patternSelect.value = "draw";
+    eraseMode = true;
+  } else {
+    // Exit erase mode: restore previous brush
+    eraseMode = false;
+    patternSelect.value = previousPattern || "draw";
+  }
+
+  updateEraseButton();
+}
+
+// If user changes brush while erase is active, disable erase
+const patternSelectEl = document.getElementById("patternSelect");
+patternSelectEl.addEventListener("change", (e) => {
+  if(eraseMode && e.target.value !== "draw"){
+    eraseMode = false;
+    updateEraseButton();
+  }
+});
+
 function clearGrid(){ 
   grid.clear();
   generation = 0;
   running = false;
+  populationHistory = [];
+  cellAges.clear();
   updateButton();
   updateStats();
 }
@@ -469,7 +684,95 @@ async function importRLE(){
 }
 
 updateGridButton();
+updateFullCellButton();
+updateEraseButton();
+updateColorButton();
+updateHeatmapButton();
 updateStats();
+
+// Rules UI (render boxes, handle changes)
+function renderRuleBoxes(){
+  const surviveContainer = document.getElementById('surviveBoxes');
+  const birthContainer = document.getElementById('birthBoxes');
+  surviveContainer.innerHTML = '';
+  birthContainer.innerHTML = '';
+
+  for(let i=0;i<=8;i++){
+    // survive
+    let sb = document.createElement('label');
+    sb.className = 'rule-checkbox';
+    sb.title = `Survive if neighbors = ${i}`;
+    sb.innerHTML = `<input type="checkbox" id="survive_${i}" ${survivalSet.has(i)?'checked':''} /><span class="rule-num">${i}</span><span class="rule-check">✓</span>`;
+    surviveContainer.appendChild(sb);
+    document.getElementById(`survive_${i}`).addEventListener('change', (e)=> onRuleCheckboxChange('survive', i, e.target.checked));
+
+    // birth
+    let bb = document.createElement('label');
+    bb.className = 'rule-checkbox';
+    bb.title = `Birth if neighbors = ${i}`;
+    bb.innerHTML = `<input type="checkbox" id="birth_${i}" ${birthSet.has(i)?'checked':''} /><span class="rule-num">${i}</span><span class="rule-check">✓</span>`;
+    birthContainer.appendChild(bb);
+    document.getElementById(`birth_${i}`).addEventListener('change', (e)=> onRuleCheckboxChange('birth', i, e.target.checked));
+  }
+  updateRuleString();
+}
+
+function onRuleCheckboxChange(type, n, checked){
+  if(type === 'survive'){
+    if(checked) survivalSet.add(n);
+    else survivalSet.delete(n);
+  } else {
+    if(checked) birthSet.add(n);
+    else birthSet.delete(n);
+  }
+  updateRuleString();
+}
+
+function updateRuleString(){
+  const s = Array.from(survivalSet).sort((a,b)=>a-b).join('');
+  const b = Array.from(birthSet).sort((a,b)=>a-b).join('');
+  document.getElementById('ruleString').textContent = `B${b}/S${s}`;
+}
+
+function selectAll(which){
+  if(which === 'survive'){
+    for(let i=0;i<=8;i++) survivalSet.add(i);
+  } else {
+    for(let i=0;i<=8;i++) birthSet.add(i);
+  }
+  renderRuleBoxes();
+}
+
+function clearAll(which){
+  if(which === 'survive'){
+    survivalSet.clear();
+  } else {
+    birthSet.clear();
+  }
+  renderRuleBoxes();
+}
+
+function resetRules(){
+  survivalSet = new Set([2,3]);
+  birthSet = new Set([3]);
+  renderRuleBoxes();
+  updateRuleString();
+}
+
+// Rules panel toggling
+let rulesOpen = false;
+function toggleRules(){
+  rulesOpen = !rulesOpen;
+  const panel = document.getElementById('rulesPanel');
+  const btn = document.getElementById('rulesBtn');
+  if(rulesOpen){
+    panel.style.display = 'block';
+    btn.className = 'running';
+  } else {
+    panel.style.display = 'none';
+    btn.className = 'paused';
+  }
+}
 
 // Keys
 window.addEventListener("keydown",e=>{
@@ -477,15 +780,17 @@ window.addEventListener("keydown",e=>{
     e.preventDefault();
     togglePlay();
   }
+
   if(e.key.toLowerCase()==="e"){
-    eraseMode = !eraseMode;
-    if(eraseMode){
-      const patternSelect = document.getElementById("patternSelect");
-      if(patternSelect.value !== "draw"){
-        patternSelect.value = "draw";
-      }
-    }
+    e.preventDefault();
+    toggleErase();
   }
+
+  if(e.key.toLowerCase()==="f"){
+    e.preventDefault();
+    toggleFullCell();
+  }
+
   if(e.key.toLowerCase()==="g"){
     toggleGrid();
   }
@@ -493,7 +798,7 @@ window.addEventListener("keydown",e=>{
 
 // Mouse
 canvas.addEventListener("mousedown",e=>{
-  if(e.button === 2 || e.shiftKey){
+  if(e.button === 2){
     panning=true;
   } else {
     drawing=true;
@@ -501,6 +806,7 @@ canvas.addEventListener("mousedown",e=>{
     updateButton();
     lastDrawnCell=null;
     lastDrawCoords=null;
+    orthoAxis = null;
     place(e);
   }
 });
@@ -512,8 +818,17 @@ canvas.addEventListener("mousemove",e=>{
   if(drawing) place(e);
 
   if(panning){
-    offsetX+=e.movementX;
-    offsetY+=e.movementY;
+    if(e.shiftKey){
+      // constrain shift-panning to axis-aligned move (horizontal OR vertical)
+      if(Math.abs(e.movementX) > Math.abs(e.movementY)){
+        offsetX += e.movementX;
+      } else {
+        offsetY += e.movementY;
+      }
+    } else {
+      offsetX += e.movementX;
+      offsetY += e.movementY;
+    }
   }
 });
 
@@ -522,6 +837,7 @@ canvas.addEventListener("mouseup",()=>{
   panning=false;
   lastDrawnCell=null;
   lastDrawCoords=null;
+  orthoAxis = null;
 });
 
 canvas.addEventListener("contextmenu",e=>e.preventDefault());
@@ -556,6 +872,27 @@ function place(e){
   let lineStart = lastDrawCoords || [x,y];
   let dx = x - lineStart[0];
   let dy = y - lineStart[1];
+
+  if(e.shiftKey){
+    if(orthoAxis === null){
+      if(Math.abs(dx) > Math.abs(dy)){
+        orthoAxis = 'x';
+      } else if(Math.abs(dy) > Math.abs(dx)){
+        orthoAxis = 'y';
+      }
+    }
+
+    if(orthoAxis === 'x'){
+      y = lineStart[1];
+      dy = 0;
+    } else if(orthoAxis === 'y'){
+      x = lineStart[0];
+      dx = 0;
+    }
+  } else {
+    orthoAxis = null;
+  }
+
   let steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
 
   for(let i=0;i<=steps;i++){
@@ -588,6 +925,9 @@ window.addEventListener("resize",()=>{
   canvas.width=window.innerWidth;
   canvas.height=window.innerHeight;
 });
+
+// initialize rule boxes
+renderRuleBoxes();
 </script>
 
 </body>
