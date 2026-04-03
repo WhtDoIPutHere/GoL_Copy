@@ -2,7 +2,15 @@
 <html>
 <head>
   <title>Game of Life - Natan</title>
+  
   <style>
+  #ui.hidden {
+  transform: translateX(-101%); /* Slides it just out of view */
+    }
+    #ui {
+     transition: transform 0.3s ease; /* Makes it slide smoothly */
+    }
+
     body { margin: 0; background: #111; color: white; font-family: sans-serif; }
     #ui {
       position: fixed;
@@ -61,6 +69,7 @@
 <body>
 
 <div id="ui">
+    <button id="collapseBtn" onclick="toggleUI()" style="position:absolute; right:-50px; top:0; width:30px; height:30px; border-radius:0 5px 5px 0; background:rgba(0,0,0,0.7); color:white; border:none; cursor:pointer;">☰</button>
   <div class="row">
     <button id="playBtn" class="paused" onclick="togglePlay()">Paused</button>
     <button id="gridBtn" class="paused" onclick="toggleGrid()">Grid</button>
@@ -138,6 +147,16 @@
 <canvas id="canvas"></canvas>
 
 <script>
+    
+function toggleUI() {
+  const ui = document.getElementById("ui");
+  ui.classList.toggle("hidden");
+  
+  // Change the icon/text based on state
+  const btn = document.getElementById("collapseBtn");
+  btn.textContent = ui.classList.contains("hidden") ? "❯" : "☰";
+}
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -879,6 +898,11 @@ if(e.key.toLowerCase() === "b"){
   document.getElementById("chaosDensityContainer").style.display = "none"; // Hide slider
   if(eraseMode) toggleErase(); 
 }
+
+if(e.key.toLowerCase() === "h"){
+  toggleUI();
+}
+
 });
 
 // Mouse
