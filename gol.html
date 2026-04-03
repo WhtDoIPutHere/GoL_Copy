@@ -10,19 +10,10 @@
     #ui {
      transition: transform 0.3s ease; /* Makes it slide smoothly */
     }
+    
 .shortcut-dropdown {
   position: relative;
   display: inline-block;
-  margin-left: 10px;
-}
-
-.shortcut-btn {
-  background: #445;
-  color: white;
-  padding: 3px 10px;
-  border: none;
-  border-radius: 4px;
-  cursor: help;
 }
 
 .shortcut-content {
@@ -35,7 +26,8 @@
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #555;
-  left: 0; /* Aligns menu to the right of the button */
+  top: 100%; /* Makes it open downward from the button */
+  left: 0;   /* Aligns it to the left edge of the button */
 }
 
 .shortcut-dropdown:hover .shortcut-content {
@@ -118,7 +110,9 @@
   <div class="row">
     <button id="playBtn" class="paused" onclick="togglePlay()">Paused</button>
     <button id="gridBtn" class="paused" onclick="toggleGrid()">Grid</button>
+    
     <button id="eraseBtn" class="paused" onclick="toggleErase()">Erase</button>
+    
     <button id="fullCellBtn" class="paused" onclick="toggleFullCell()">Full Cell</button>
     <button id="colorsBtn" class="paused" onclick="toggleColors()">Colors</button>
     <button id="heatmapBtn" class="paused" onclick="toggleHeatmap()">Heatmap</button>
@@ -127,7 +121,29 @@
     <button id="stepBtn" onclick="doStep()">Step</button>
     <button id="resetViewBtn" onclick="resetView()">Reset View</button>
     <button onclick="clearGrid()">Clear</button>
+    
+    
+    <!-- Shortcuts moved to the top row and styled exactly like Pattern Library -->
+    
+    <div class="shortcut-dropdown">
+        <button id="shortcut-btn" style="background: #445;">Shortcuts</button>
+      <div class="shortcut-content">
+        <div class="shortcut-item"><span>Space</span> <span>Play/Pause</span></div>
+        <div class="shortcut-item"><span>[ and ]</span> <span>Brush Size</span></div>
+        <div class="shortcut-item"><span>E</span> <span>Erase Mode</span></div>
+        <div class="shortcut-item"><span>F</span> <span>Full Cell</span></div>
+        <div class="shortcut-item"><span>G</span> <span>Toggle Grid</span></div>
+        <div class="shortcut-item"><span>B</span> <span>Reset Brush</span></div>
+        <div class="shortcut-item"><span>C</span> <span>Cycle Colors</span></div>
+        <div class="shortcut-item"><span>R</span> <span>Toggle Rules</span></div>
+        <div class="shortcut-item"><span>T</span> <span>Toggle Ghost</span></div>
+        <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
+        <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
+      </div>
+    </div>
+    
     <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
+
   </div>
 
   <div class="row">
@@ -165,22 +181,6 @@
       <option value="switchengine" title="GROWTH">Switch Engine</option>
       <option value="chaos">Random</option>
     </select>
-<div class="shortcut-dropdown">
-  <button class="shortcut-btn">⌨️ Shortcuts</button>
-  <div class="shortcut-content">
-    <div class="shortcut-item"><span>Space</span> <span>Play/Pause</span></div>
-    <div class="shortcut-item"><span>[ and ]</span> <span>Brush Size</span></div>
-    <div class="shortcut-item"><span>E</span> <span>Erase Mode</span></div>
-    <div class="shortcut-item"><span>F</span> <span>Full Cell</span></div>
-    <div class="shortcut-item"><span>G</span> <span>Toggle Grid</span></div>
-    <div class="shortcut-item"><span>B</span> <span>Reset Brush</span></div>
-    <div class="shortcut-item"><span>C</span> <span>Cycle Colors</span></div>
-    <div class="shortcut-item"><span>R</span> <span>Toggle Rules</span></div>
-    <div class="shortcut-item"><span>T</span> <span>Toggle Ghost</span></div>
-    <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
-    <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
-  </div>
-</div>
   </div>
 
   <div id="stats" style="font-size: 12px; margin-top: 8px;">
@@ -201,7 +201,6 @@
       </div>
     </div>
   </div>
-
 </div>
 
 <canvas id="canvas"></canvas>
