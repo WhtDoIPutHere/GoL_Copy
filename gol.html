@@ -878,6 +878,20 @@ window.addEventListener("keydown",e=>{
     togglePlay();
   }
 
+  // Brush size shortcuts
+  if (e.key === "[") {
+    const brushInput = document.getElementById("brushSize");
+    brushInput.value = Math.max(parseInt(brushInput.min), parseInt(brushInput.value) - 1);
+    // Manually trigger any 'change' or 'input' logic if needed
+    brushInput.dispatchEvent(new Event('input')); 
+  }
+
+  if (e.key === "]") {
+    const brushInput = document.getElementById("brushSize");
+    brushInput.value = Math.min(parseInt(brushInput.max), parseInt(brushInput.value) + 1);
+    brushInput.dispatchEvent(new Event('input'));
+  }
+  
   if(e.key.toLowerCase()==="e"){
     e.preventDefault();
     toggleErase();
@@ -901,6 +915,31 @@ if(e.key.toLowerCase() === "b"){
 
 if(e.key.toLowerCase() === "h"){
   toggleUI();
+}
+
+  if(e.key.toLowerCase() === "c"){
+    if(!colorMode && !heatmapMode) {
+      // Switch from Normal to Colors
+      toggleColors();
+    } else if(colorMode) {
+      // Switch from Colors to Heatmap
+      toggleHeatmap();
+    } else {
+      // Switch from Heatmap back to Normal
+      heatmapMode = false;
+      colorMode = false;
+      updateHeatmapButton();
+      updateColorButton();
+    }
+  }
+  
+  if(e.key.toLowerCase() === "r"){
+    e.preventDefault();
+    toggleRules();
+  }
+  
+if(e.key.toLowerCase() === "t"){
+  toggleGhost();
 }
 
 });
