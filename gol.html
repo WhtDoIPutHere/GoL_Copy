@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Game of Life - Final Ctrl Erase</title>
+  <title>Game of Life - Natan</title>
   <style>
     body { margin: 0; background: #111; color: white; font-family: sans-serif; }
     #ui {
@@ -32,6 +32,8 @@
     #colorsBtn.running { background: #33aa33; }
     #rulesBtn.paused { background: #aa3333; }
     #rulesBtn.running { background: #33aa33; }
+    #ghostBtn.paused { background: #aa3333; }
+    #ghostBtn.running { background: #33aa33; }
 
     /* small styles for rule checkboxes */
     .rule-checkbox { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #444; border-radius:4px; background:#161616; color:#ddd; font-size:12px; cursor:pointer; position:relative; }
@@ -40,6 +42,20 @@
     .rule-checkbox .rule-check { position:absolute; font-size:14px; color:lime; pointer-events:none; opacity:0; }
     .rule-checkbox input:checked + .rule-num { display:none; }
     .rule-checkbox input:checked + .rule-num + .rule-check { opacity:1; }
+    
+    #rulesPanel {
+      display: none;
+      position: absolute;
+      top: 100%;       /* Aligns top of rules to bottom of UI */
+      left: 0;         /* Aligns with left edge of UI */
+      margin-top: 10px; /* Gap matches the 10px screen edge distance */
+      background: rgba(0,0,0,0.85);
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 999;
+      width: 260px;
+    }
+
   </style>
 </head>
 <body>
@@ -52,6 +68,7 @@
     <button id="fullCellBtn" class="paused" onclick="toggleFullCell()">Full Cell</button>
     <button id="colorsBtn" class="paused" onclick="toggleColors()">Colors</button>
     <button id="heatmapBtn" class="paused" onclick="toggleHeatmap()">Heatmap</button>
+    <button id="ghostBtn" class="paused" onclick="toggleGhost()">Ghost</button>
     <button id="rulesBtn" class="paused" onclick="toggleRules()">Rules</button>
     <button id="stepBtn" onclick="doStep()">Step</button>
     <button id="resetViewBtn" onclick="resetView()">Reset View</button>
@@ -65,12 +82,16 @@
 
     <label style="margin:0 6px 0 0;">Brush:</label>
     <input type="range" min="1" max="10" value="1" id="brushSize">
+    <div id="chaosDensityContainer" style="display:none; align-items:center; margin-left:10px;">
+  <label style="margin:0 6px 0 0;">Density:</label>
+  <input type="range" min="1" max="60" value="25" id="chaosDensity" style="width:80px;">
+</div>
   </div>
 
   <div class="row">
     <label style="margin:0 6px 0 0;">Pattern:</label>
     <select id="patternSelect">
-      <option value="draw">Draw</option>
+      <option value="draw">Brush</option>
       <option value="glider" title="3x3 oscillator">Glider</option>
       <option value="blinker" title="3x1 period-2">Blinker</option>
       <option value="toad" title="2x4 period-2">Toad</option>
@@ -88,6 +109,7 @@
       <option value="diehard" title="Methuselah">Diehard</option>
       <option value="galaxy" title="Oscilslator">Galaxy</option>
       <option value="switchengine" title="GROWTH">Switch Engine</option>
+      <option value="chaos">Random</option>
     </select>
 
   </div>
@@ -99,7 +121,7 @@
   <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555; margin-top: 8px;"></canvas>
 
   <!-- Rules panel: absolute so opening doesn't change UI layout -->
-  <div id="rulesPanel" style="display:none; position:absolute; top:120px; left:10px; background: rgba(0,0,0,0.85); padding:10px; border-radius:8px; z-index:999; width:260px;">
+  <div id="rulesPanel">
     <div style="font-size:12px; margin-bottom:6px;">Survive (alive stays alive):</div>
     <div id="surviveBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
     <div style="font-size:12px; margin-bottom:6px;">Birth (dead becomes alive):</div>
@@ -142,6 +164,7 @@ let fullCellMode = false;
 let orthoAxis = null; // null = undecided, 'x' or 'y'
 let colorMode = false;
 let heatmapMode = false;
+let ghostMode = false;
 let populationHistory = [];
 let cellAges = new Map();
 let mouseX = 0;
@@ -153,7 +176,13 @@ let birthSet = new Set([3]);
 
 // Patterns
 const patterns = {
-  glider: [[0,1],[1,2],[2,0],[2,1],[2,2]],
+  glider: [
+    [1,0],[2,0],       // Top
+    [3,1],[3,2],       // Right
+    [2,3],[1,3],       // Bottom
+    [0,2],[0,1],       // Left
+    [1,1],[2,2]        // The "Hand" (rotates)
+  ],
   blinker: [[0,0],[1,0],[2,0]],
   toad: [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1]],
   beacon: [[0,0],[1,0],[0,1],[3,2],[2,3],[3,3]],
@@ -253,7 +282,14 @@ function getAgeColor(age){
 
 // Draw
 function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+    if (ghostMode && running) {
+    // Faintly "overpaint" the previous frame to create trails
+    ctx.fillStyle = "rgba(17, 17, 17, 0.15)"; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
 
   for(let k of grid){
     let [x,y]=parse(k);
@@ -301,7 +337,7 @@ function draw(){
     // keep the helper state on, but do not draw the visual grid at extreme zoom levels
   }
 
-  // Brush preview
+    // Brush preview
   let brush = parseInt(document.getElementById("brushSize").value);
   let mode = document.getElementById("patternSelect").value;
 
@@ -312,7 +348,14 @@ function draw(){
   ctx.globalAlpha = 0.5;
   ctx.lineWidth = 2;
 
-  if(mode !== "draw" && patterns[mode]){
+  // Set dashed line if in Chaos mode
+  if(mode === "chaos"){
+    ctx.setLineDash([5, 5]);
+  } else {
+    ctx.setLineDash([]);
+  }
+
+  if(mode !== "draw" && mode !== "chaos" && patterns[mode]){
     let {bounds, centerX, centerY} = getPatternAnchor(patterns[mode]);
     ctx.strokeRect(
       (gx + bounds.minX - centerX) * cellSize + offsetX,
@@ -320,7 +363,7 @@ function draw(){
       (bounds.maxX - bounds.minX + 1) * cellSize,
       (bounds.maxY - bounds.minY + 1) * cellSize
     );
-  } else if(mode === "draw"){
+  } else if(mode === "draw" || mode === "chaos"){
     ctx.strokeRect(
       gx*cellSize - (brush-1)*cellSize + offsetX,
       gy*cellSize - (brush-1)*cellSize + offsetY,
@@ -329,7 +372,9 @@ function draw(){
     );
   }
 
+  ctx.setLineDash([]); 
   ctx.globalAlpha = 1;
+
 
   // Draw population graph
   const graphCanvas = document.getElementById("graphCanvas");
@@ -495,6 +540,19 @@ function toggleHeatmap(){
   }
   updateHeatmapButton();
 }
+
+function toggleGhost() {
+  ghostMode = !ghostMode;
+  const btn = document.getElementById("ghostBtn");
+  if(ghostMode) {
+    btn.textContent = "Ghost";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Ghost";
+    btn.className = "paused";
+  }
+}
+
 function updateColorButton(){
   const btn = document.getElementById("colorsBtn");
   if(colorMode){
@@ -549,6 +607,14 @@ patternSelectEl.addEventListener("change", (e) => {
   if(eraseMode && e.target.value !== "draw"){
     eraseMode = false;
     updateEraseButton();
+  }
+  
+  // NEW: Show/Hide Density Slider
+  const densityContainer = document.getElementById("chaosDensityContainer");
+  if(e.target.value === "chaos") {
+    densityContainer.style.display = "flex";
+  } else {
+    densityContainer.style.display = "none";
   }
 });
 
@@ -806,6 +872,13 @@ window.addEventListener("keydown",e=>{
   if(e.key.toLowerCase()==="g"){
     toggleGrid();
   }
+  
+if(e.key.toLowerCase() === "b"){
+  const select = document.getElementById("patternSelect");
+  select.value = "draw";
+  document.getElementById("chaosDensityContainer").style.display = "none"; // Hide slider
+  if(eraseMode) toggleErase(); 
+}
 });
 
 // Mouse
@@ -855,23 +928,48 @@ canvas.addEventListener("mouseup",()=>{
 canvas.addEventListener("contextmenu",e=>e.preventDefault());
 
 // Place
-function paintCell(x,y,mode,brush,erase){
-  if(mode!=="draw"){
+function paintCell(x, y, mode, brush, erase) {
+  // 1. Add this Chaos logic first
+  if (mode === "chaos") {
+  let density = parseInt(document.getElementById("chaosDensity").value) / 100;
+  for (let dx = -brush + 1; dx < brush; dx++) {
+    for (let dy = -brush + 1; dy < brush; dy++) {
+      if (Math.random() < density) { 
+        let ck = key(x + dx, y + dy);
+        grid.add(ck);
+        if (!cellAges.has(ck)) cellAges.set(ck, 0);
+      }
+    }
+  }
+  return;
+}
+
+  // 2. This is your existing "Pattern" logic (keep this)
+  if (mode !== "draw") {
     let {centerX, centerY} = getPatternAnchor(patterns[mode]);
-    for(let [dx,dy] of patterns[mode]){
-      grid.add(key(x + dx - centerX, y + dy - centerY));
+    for (let [dx, dy] of patterns[mode]) {
+      let ck = key(x + dx - centerX, y + dy - centerY);
+      grid.add(ck);
+      if (!cellAges.has(ck)) cellAges.set(ck, 0);
     }
     return;
   }
 
-  for(let dx=-brush+1;dx<brush;dx++){
-    for(let dy=-brush+1;dy<brush;dy++){
-      let cell=key(x+dx,y+dy);
-      if(erase) grid.delete(cell);
-      else grid.add(cell);
+  // 3. This is your existing "Draw/Erase" logic (keep this)
+  for (let dx = -brush + 1; dx < brush; dx++) {
+    for (let dy = -brush + 1; dy < brush; dy++) {
+      let cell = key(x + dx, y + dy);
+      if (erase) {
+        grid.delete(cell);
+        cellAges.delete(cell);
+      } else {
+        grid.add(cell);
+        if (!cellAges.has(cell)) cellAges.set(cell, 0);
+      }
     }
   }
 }
+
 
 function place(e){
   let brush=parseInt(document.getElementById("brushSize").value);
