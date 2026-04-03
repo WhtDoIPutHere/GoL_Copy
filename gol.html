@@ -10,6 +10,51 @@
     #ui {
      transition: transform 0.3s ease; /* Makes it slide smoothly */
     }
+.shortcut-dropdown {
+  position: relative;
+  display: inline-block;
+  margin-left: 10px;
+}
+
+.shortcut-btn {
+  background: #445;
+  color: white;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: help;
+}
+
+.shortcut-content {
+  display: none;
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.9);
+  min-width: 200px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+  z-index: 1000;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  left: 0; /* Aligns menu to the right of the button */
+}
+
+.shortcut-dropdown:hover .shortcut-content {
+  display: block;
+}
+
+.shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 5px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 2px;
+}
+
+.shortcut-item span:first-child {
+  color: lime;
+  font-weight: bold;
+}
 
     body { margin: 0; background: #111; color: white; font-family: sans-serif; }
     #ui {
@@ -120,7 +165,22 @@
       <option value="switchengine" title="GROWTH">Switch Engine</option>
       <option value="chaos">Random</option>
     </select>
-
+<div class="shortcut-dropdown">
+  <button class="shortcut-btn">⌨️ Shortcuts</button>
+  <div class="shortcut-content">
+    <div class="shortcut-item"><span>Space</span> <span>Play/Pause</span></div>
+    <div class="shortcut-item"><span>[ and ]</span> <span>Brush Size</span></div>
+    <div class="shortcut-item"><span>E</span> <span>Erase Mode</span></div>
+    <div class="shortcut-item"><span>F</span> <span>Full Cell</span></div>
+    <div class="shortcut-item"><span>G</span> <span>Toggle Grid</span></div>
+    <div class="shortcut-item"><span>B</span> <span>Reset Brush</span></div>
+    <div class="shortcut-item"><span>C</span> <span>Cycle Colors</span></div>
+    <div class="shortcut-item"><span>R</span> <span>Toggle Rules</span></div>
+    <div class="shortcut-item"><span>T</span> <span>Toggle Ghost</span></div>
+    <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
+    <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
+  </div>
+</div>
   </div>
 
   <div id="stats" style="font-size: 12px; margin-top: 8px;">
