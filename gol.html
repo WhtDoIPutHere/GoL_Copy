@@ -138,6 +138,7 @@
         <div class="shortcut-item"><span>R</span> <span>Toggle Rules</span></div>
         <div class="shortcut-item"><span>T</span> <span>Toggle Ghost</span></div>
         <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
+        <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
       </div>
     </div>
@@ -247,6 +248,7 @@ let populationHistory = [];
 let cellAges = new Map();
 let mouseX = 0;
 let mouseY = 0;
+let patternGhostPreview = false;
 
 // Rule sets (default Conway B3/S23)
 let survivalSet = new Set([2,3]);
@@ -415,44 +417,62 @@ function draw(){
     // keep the helper state on, but do not draw the visual grid at extreme zoom levels
   }
 
-    // Brush preview
-  let brush = parseInt(document.getElementById("brushSize").value);
-  let mode = document.getElementById("patternSelect").value;
+// Brush preview
+let brush = parseInt(document.getElementById("brushSize").value);
+let mode = document.getElementById("patternSelect").value;
 
-  let gx = Math.floor((mouseX - offsetX)/cellSize);
-  let gy = Math.floor((mouseY - offsetY)/cellSize);
+let gx = Math.floor((mouseX - offsetX) / cellSize);
+let gy = Math.floor((mouseY - offsetY) / cellSize);
 
-  ctx.strokeStyle = eraseMode ? "red" : "white";
+// Base preview styling
+ctx.strokeStyle = eraseMode ? "red" : "white";
+ctx.globalAlpha = 0.5;
+ctx.lineWidth = 2;
+
+// Dashed outline for chaos mode
+if (mode === "chaos") {
+  ctx.setLineDash([5, 5]);
+} else {
+  ctx.setLineDash([]);
+}
+
+// --- PATTERN MODE (Ghost shape + bounding box) ---
+if (mode !== "draw" && mode !== "chaos" && patterns[mode]) {
+  let { bounds, centerX, centerY } = getPatternAnchor(patterns[mode]);
+
+if (patternGhostPreview) {
+  ctx.globalAlpha = 0.25;
+  ctx.fillStyle = eraseMode ? "red" : "white";
+
+  for (let [dx, dy] of patterns[mode]) {
+    let px = (gx + dx - centerX) * cellSize + offsetX;
+    let py = (gy + dy - centerY) * cellSize + offsetY;
+    ctx.fillRect(px, py, cellSize, cellSize);
+  }
+}
+
+  // Draw bounding box on top
   ctx.globalAlpha = 0.5;
-  ctx.lineWidth = 2;
+  ctx.strokeRect(
+    (gx + bounds.minX - centerX) * cellSize + offsetX,
+    (gy + bounds.minY - centerY) * cellSize + offsetY,
+    (bounds.maxX - bounds.minX + 1) * cellSize,
+    (bounds.maxY - bounds.minY + 1) * cellSize
+  );
 
-  // Set dashed line if in Chaos mode
-  if(mode === "chaos"){
-    ctx.setLineDash([5, 5]);
-  } else {
-    ctx.setLineDash([]);
-  }
+// --- DRAW / CHAOS MODE (square brush preview) ---
+} else {
+  ctx.strokeRect(
+    gx * cellSize - (brush - 1) * cellSize + offsetX,
+    gy * cellSize - (brush - 1) * cellSize + offsetY,
+    brush * 2 * cellSize - cellSize,
+    brush * 2 * cellSize - cellSize
+  );
+}
 
-  if(mode !== "draw" && mode !== "chaos" && patterns[mode]){
-    let {bounds, centerX, centerY} = getPatternAnchor(patterns[mode]);
-    ctx.strokeRect(
-      (gx + bounds.minX - centerX) * cellSize + offsetX,
-      (gy + bounds.minY - centerY) * cellSize + offsetY,
-      (bounds.maxX - bounds.minX + 1) * cellSize,
-      (bounds.maxY - bounds.minY + 1) * cellSize
-    );
-  } else if(mode === "draw" || mode === "chaos"){
-    ctx.strokeRect(
-      gx*cellSize - (brush-1)*cellSize + offsetX,
-      gy*cellSize - (brush-1)*cellSize + offsetY,
-      brush*2*cellSize - cellSize,
-      brush*2*cellSize - cellSize
-    );
-  }
-
-  ctx.setLineDash([]); 
-  ctx.globalAlpha = 1;
-
+// Reset canvas state
+ctx.setLineDash([]);
+ctx.globalAlpha = 1;
 
   // Draw population graph
   const graphCanvas = document.getElementById("graphCanvas");
@@ -694,6 +714,9 @@ patternSelectEl.addEventListener("change", (e) => {
   } else {
     densityContainer.style.display = "none";
   }
+
+  // ADD THIS LINE
+  patternGhostPreview = false;
 });
 
 function clearGrid(){ 
@@ -931,8 +954,16 @@ function toggleRules(){
 }
 
 // Keys
-window.addEventListener("keydown",e=>{
-  if(e.code==="Space"){
+// Keys
+window.addEventListener("keydown", e => {
+
+  // Ignore key presses when typing in inputs/selects
+  const tag = document.activeElement.tagName.toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") {
+    return;
+  }
+
+  if (e.code === "Space") {
     e.preventDefault();
     togglePlay();
   }
@@ -941,65 +972,76 @@ window.addEventListener("keydown",e=>{
   if (e.key === "[") {
     const brushInput = document.getElementById("brushSize");
     brushInput.value = Math.max(parseInt(brushInput.min), parseInt(brushInput.value) - 1);
-    // Manually trigger any 'change' or 'input' logic if needed
-    brushInput.dispatchEvent(new Event('input')); 
+    brushInput.dispatchEvent(new Event("input"));
   }
 
   if (e.key === "]") {
     const brushInput = document.getElementById("brushSize");
     brushInput.value = Math.min(parseInt(brushInput.max), parseInt(brushInput.value) + 1);
-    brushInput.dispatchEvent(new Event('input'));
+    brushInput.dispatchEvent(new Event("input"));
   }
-  
-  if(e.key.toLowerCase()==="e"){
+
+  if (e.key.toLowerCase() === "e") {
     e.preventDefault();
     toggleErase();
   }
 
-  if(e.key.toLowerCase()==="f"){
+  if (e.key.toLowerCase() === "f") {
     e.preventDefault();
     toggleFullCell();
   }
 
-  if(e.key.toLowerCase()==="g"){
+  if (e.key.toLowerCase() === "g") {
     toggleGrid();
   }
-  
-if(e.key.toLowerCase() === "b"){
+
+  if (e.key.toLowerCase() === "p") {
+  e.preventDefault();
+  patternGhostPreview = !patternGhostPreview;
+  }
+
+  if (e.key.toLowerCase() === "b") {
+  e.preventDefault();
+
   const select = document.getElementById("patternSelect");
-  select.value = "draw";
-  document.getElementById("chaosDensityContainer").style.display = "none"; // Hide slider
-  if(eraseMode) toggleErase(); 
+
+  // Only change if not already brush
+  if (select.value !== "draw") {
+    select.value = "draw";
+
+    // Manually trigger change logic safely
+    select.dispatchEvent(new Event("change"));
+  }
+
+  // Ensure erase mode is off
+  if (eraseMode) toggleErase();
 }
 
-if(e.key.toLowerCase() === "h"){
-  toggleUI();
-}
+  if (e.key.toLowerCase() === "h") {
+    toggleUI();
+  }
 
-  if(e.key.toLowerCase() === "c"){
-    if(!colorMode && !heatmapMode) {
-      // Switch from Normal to Colors
+  if (e.key.toLowerCase() === "c") {
+    if (!colorMode && !heatmapMode) {
       toggleColors();
-    } else if(colorMode) {
-      // Switch from Colors to Heatmap
+    } else if (colorMode) {
       toggleHeatmap();
     } else {
-      // Switch from Heatmap back to Normal
       heatmapMode = false;
       colorMode = false;
       updateHeatmapButton();
       updateColorButton();
     }
   }
-  
-  if(e.key.toLowerCase() === "r"){
+
+  if (e.key.toLowerCase() === "r") {
     e.preventDefault();
     toggleRules();
   }
-  
-if(e.key.toLowerCase() === "t"){
-  toggleGhost();
-}
+
+  if (e.key.toLowerCase() === "t") {
+    toggleGhost();
+  }
 
 });
 
