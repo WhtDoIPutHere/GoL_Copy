@@ -140,6 +140,7 @@
         <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
+        <div class="shortcut-item"><span>Ctrl + Z</span> <span>Undo</span></div>
       </div>
     </div>
     
@@ -256,7 +257,10 @@ let populationHistory = [];
 let cellAges = new Map();
 let mouseX = 0;
 let mouseY = 0;
-let patternGhostPreview = false;
+let patternGhostPreview = true;
+let undoStack = [];
+let redoStack = [];
+const MAX_HISTORY = 67; // limit memory
 
 // Rule sets (default Conway B3/S23)
 let survivalSet = new Set([2,3]);
@@ -323,6 +327,15 @@ const patterns = {
 
 const key = (x,y)=>`${x},${y}`;
 const parse = k=>k.split(',').map(Number);
+
+function createSnapshot() {
+  return {
+    grid: new Set(grid),
+    cellAges: new Map(cellAges),
+    generation: generation,
+    populationHistory: [...populationHistory]
+  };
+}
 
 function getPatternBounds(pattern){
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -581,7 +594,21 @@ requestAnimationFrame(loop);
 
 // UI
 function togglePlay(){
-  running=!running;
+
+  if (!running) {
+    // Save current state to undo stack before starting
+    undoStack.push(createSnapshot());
+
+    // Limit history size
+    if (undoStack.length > MAX_HISTORY) {
+      undoStack.shift();
+    }
+
+    // Clear redo history when a new action branch starts
+    redoStack = [];
+  }
+
+  running = !running;
   updateButton();
 }
 
@@ -961,6 +988,35 @@ function toggleRules(){
   }
 }
 
+function restoreSnapshot(snapshot) {
+  grid = new Set(snapshot.grid);
+  cellAges = new Map(snapshot.cellAges);
+  generation = snapshot.generation;
+  populationHistory = [...snapshot.populationHistory];
+
+  running = false;
+  updateButton();
+  updateStats();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+
+  redoStack.push(createSnapshot());
+
+  const prev = undoStack.pop();
+  restoreSnapshot(prev);
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+
+  undoStack.push(createSnapshot());
+
+  const next = redoStack.pop();
+  restoreSnapshot(next);
+}
+
 // Keys
 // Keys
 window.addEventListener("keydown", e => {
@@ -975,6 +1031,18 @@ window.addEventListener("keydown", e => {
     e.preventDefault();
     togglePlay();
   }
+  
+if (e.ctrlKey && e.key.toLowerCase() === "z") {
+  e.preventDefault();
+  undo();
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "y") {
+  e.preventDefault();
+  redo();
+  return;
+}
 
   // Brush size shortcuts
   if (e.key === "[") {
@@ -1059,11 +1127,24 @@ canvas.addEventListener("mousedown",e=>{
     panning=true;
   } else {
     drawing=true;
+
+    // SAVE STATE BEFORE MODIFYING GRID
+    undoStack.push(createSnapshot());
+
+    if (undoStack.length > MAX_HISTORY) {
+      undoStack.shift();
+    }
+
+    // Clear redo stack on new action
+    redoStack = [];
+
     running=false;
     updateButton();
+
     lastDrawnCell=null;
     lastDrawCoords=null;
     orthoAxis = null;
+
     place(e);
   }
 });
