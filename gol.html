@@ -121,8 +121,19 @@
     <button id="stepBtn" onclick="doStep()">Step</button>
     <button id="resetViewBtn" onclick="resetView()">Reset View</button>
     <button onclick="clearGrid()">Clear</button>
-    
-    
+
+  </div>
+
+  <div class="row">
+    <label style="margin:0 6px 0 0;">Speed:</label>
+    <input type="range" min="1" max="60" value="10" id="speed">
+
+    <label style="margin:0 6px 0 0;">Brush:</label>
+    <input type="range" min="1" max="10" value="1" id="brushSize">
+    <div id="chaosDensityContainer" style="display:none; align-items:center; margin-left:10px;">
+  <label style="margin:0 6px 0 0;">Density:</label>
+  <input type="range" min="1" max="60" value="25" id="chaosDensity" style="width:80px;">
+</div>
     <!-- Shortcuts moved to the top row and styled exactly like Pattern Library -->
     
     <div class="shortcut-dropdown">
@@ -146,21 +157,8 @@
     </div>
     
     <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
-    
     <button onclick="window.open('https://copy.sh/life/examples/','_blank')" style="background: #445;">RLE Library</button>
-
-  </div>
-
-  <div class="row">
-    <label style="margin:0 6px 0 0;">Speed:</label>
-    <input type="range" min="1" max="60" value="10" id="speed">
-
-    <label style="margin:0 6px 0 0;">Brush:</label>
-    <input type="range" min="1" max="10" value="1" id="brushSize">
-    <div id="chaosDensityContainer" style="display:none; align-items:center; margin-left:10px;">
-  <label style="margin:0 6px 0 0;">Density:</label>
-  <input type="range" min="1" max="60" value="25" id="chaosDensity" style="width:80px;">
-</div>
+    <button onclick="window.open('https://docs.google.com/document','_blank')" style="background: #445;">Docs</button>
   </div>
 
   <div class="row">
