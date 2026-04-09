@@ -195,7 +195,8 @@
   <div id="stats" style="font-size: 12px; margin-top: 8px;">
     Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
   </div>
-
+  
+  <canvas id="minimapCanvas" width="200" height="80" style="border: 1px solid #555; margin-top: 8px;"></canvas>
   <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555; margin-top: 8px;"></canvas>
 
   <!-- Rules panel: absolute so opening doesn't change UI layout -->
@@ -519,6 +520,56 @@ ctx.globalAlpha = 1;
     }
     graphCtx.stroke();
   }
+  
+  const minimapCanvas = document.getElementById("minimapCanvas");
+const minimapCtx = minimapCanvas.getContext("2d");
+
+minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+// Determine bounds of all live cells
+if (grid.size > 0) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  for (let k of grid) {
+    let [x, y] = parse(k);
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+
+  let width = maxX - minX + 1;
+  let height = maxY - minY + 1;
+
+  let scaleX = minimapCanvas.width / width;
+  let scaleY = minimapCanvas.height / height;
+  let scale = Math.min(scaleX, scaleY);
+
+  let offsetXMinimap = (minimapCanvas.width - width * scale) / 2;
+  let offsetYMinimap = (minimapCanvas.height - height * scale) / 2;
+
+  // Draw cells
+  minimapCtx.fillStyle = "lime";
+  for (let k of grid) {
+    let [x, y] = parse(k);
+    let mx = offsetXMinimap + (x - minX) * scale;
+    let my = offsetYMinimap + (y - minY) * scale;
+
+    minimapCtx.fillRect(mx, my, Math.max(1, scale), Math.max(1, scale));
+  }
+
+  // Draw viewport rectangle
+  let viewX = (-offsetX / cellSize - minX) * scale + offsetXMinimap;
+  let viewY = (-offsetY / cellSize - minY) * scale + offsetYMinimap;
+
+  let viewW = canvas.width / cellSize * scale;
+  let viewH = canvas.height / cellSize * scale;
+
+  minimapCtx.strokeStyle = "white";
+  minimapCtx.lineWidth = 1;
+  minimapCtx.strokeRect(viewX, viewY, viewW, viewH);
+}
+  
 }
 
 // Simulation
@@ -732,6 +783,41 @@ function toggleErase(){
 
   updateEraseButton();
 }
+
+minimapCanvas.addEventListener("click", (e) => {
+  if (grid.size === 0) return;
+
+  let rect = minimapCanvas.getBoundingClientRect();
+  let mx = e.clientX - rect.left;
+  let my = e.clientY - rect.top;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  for (let k of grid) {
+    let [x, y] = parse(k);
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+
+  let width = maxX - minX + 1;
+  let height = maxY - minY + 1;
+
+  let scaleX = minimapCanvas.width / width;
+  let scaleY = minimapCanvas.height / height;
+  let scale = Math.min(scaleX, scaleY);
+
+  let offsetXMinimap = (minimapCanvas.width - width * scale) / 2;
+  let offsetYMinimap = (minimapCanvas.height - height * scale) / 2;
+
+  let worldX = minX + (mx - offsetXMinimap) / scale;
+  let worldY = minY + (my - offsetYMinimap) / scale;
+
+  // Center view on clicked position
+  offsetX = canvas.width / 2 - worldX * cellSize;
+  offsetY = canvas.height / 2 - worldY * cellSize;
+});
 
 // If user changes brush while erase is active, disable erase
 const patternSelectEl = document.getElementById("patternSelect");
