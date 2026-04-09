@@ -192,12 +192,14 @@
 </div>
   </div>
 
-  <div id="stats" style="font-size: 12px; margin-top: 8px;">
+  <div id="stats" style="font-size: 12px; margin-top: 6px;">
     Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
   </div>
   
-  <canvas id="minimapCanvas" width="200" height="80" style="border: 1px solid #555; margin-top: 8px;"></canvas>
-  <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555; margin-top: 8px;"></canvas>
+  <div class="row" style="align-items:flex-start; margin-top: 8px;">
+  <canvas id="minimapCanvas" width="80" height="80" style="border: 1px solid #555;"></canvas>
+  <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555;"></canvas>
+</div>
 
   <!-- Rules panel: absolute so opening doesn't change UI layout -->
   <div id="rulesPanel">
