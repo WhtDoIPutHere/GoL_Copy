@@ -209,12 +209,25 @@
     padding:6px;
     border:1px solid #555;
     background:rgba(0,0,0,0.4);
-    border-radius:6px;
+    border-radius:0px;
     min-width:160px;
   ">
     <div><b>Max:</b> <span id="statPeak">0</span></div>
     <div><b>Low:</b> <span id="statLow">0</span></div>
     <div><b>Avg:</b> <span id="statAvg">0</span></div>
+  </div>
+  
+  <div id="statsPanel" style="
+    display:flex;
+    flex-direction:column;
+    font-size:12px;
+    gap:4px;
+    padding:6px;
+    border:1px solid #555;
+    background:rgba(0,0,0,0.4);
+    border-radius:0px;
+    min-width:160px;
+  ">
     <div><b>State:</b> <span id="statTrend">-</span></div>
     <div><b>Slope:</b> <span id="statSlope">0</span></div>
     <div><b>Stability:</b> <span id="statStability">-</span></div>
@@ -540,7 +553,7 @@ for (let i = 1; i < populationHistory.length; i++) {
   } else if (populationHistory[i] < populationHistory[i - 1]) {
     graphCtx.strokeStyle = "red";    // falling
   } else {
-    graphCtx.strokeStyle = "white";  // flat
+    graphCtx.strokeStyle = "lime";  // flat
   }
 
   graphCtx.beginPath();
