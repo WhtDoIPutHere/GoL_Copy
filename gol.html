@@ -196,9 +196,29 @@
     Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
   </div>
   
-  <div class="row" style="align-items:flex-start; margin-top: 8px;">
+<div class="row" style="align-items:flex-start; margin-top: 8px; gap:10px;">
   <canvas id="minimapCanvas" width="80" height="80" style="border: 1px solid #555;"></canvas>
   <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555;"></canvas>
+
+  <!-- NEW STATS COLUMN -->
+  <div id="statsPanel" style="
+    display:flex;
+    flex-direction:column;
+    font-size:12px;
+    gap:4px;
+    padding:6px;
+    border:1px solid #555;
+    background:rgba(0,0,0,0.4);
+    border-radius:6px;
+    min-width:160px;
+  ">
+    <div><b>Peak:</b> <span id="statPeak">0</span></div>
+    <div><b>Lowest:</b> <span id="statLow">0</span></div>
+    <div><b>Avg:</b> <span id="statAvg">0</span></div>
+    <div><b>Trend:</b> <span id="statTrend">-</span></div>
+    <div><b>Slope:</b> <span id="statSlope">0</span></div>
+    <div><b>Stability:</b> <span id="statStability">-</span></div>
+  </div>
 </div>
 
   <!-- Rules panel: absolute so opening doesn't change UI layout -->
@@ -521,6 +541,7 @@ ctx.globalAlpha = 1;
       }
     }
     graphCtx.stroke();
+    updateGraphStats();
   }
   
   const minimapCanvas = document.getElementById("minimapCanvas");
@@ -849,11 +870,60 @@ function clearGrid(){
   cellAges.clear();
   updateButton();
   updateStats();
+  
+  document.getElementById("statPeak").textContent = "0";
+document.getElementById("statLow").textContent = "0";
+document.getElementById("statAvg").textContent = "0";
+document.getElementById("statSlope").textContent = "0";
+document.getElementById("statTrend").textContent = "-";
+document.getElementById("statStability").textContent = "-";
+
 }
 
 function updateStats(){
   document.getElementById("genCount").textContent = generation;
   document.getElementById("liveCount").textContent = grid.size;
+}
+
+function updateGraphStats() {
+  if (populationHistory.length === 0) return;
+
+  const peak = Math.max(...populationHistory);
+  const low = Math.min(...populationHistory);
+  const avg = populationHistory.reduce((a,b)=>a+b,0) / populationHistory.length;
+
+  // linear regression slope (growth rate)
+  const n = populationHistory.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+
+  for (let i = 0; i < n; i++) {
+    sumX += i;
+    sumY += populationHistory[i];
+    sumXY += i * populationHistory[i];
+    sumX2 += i * i;
+  }
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+  // trend classification
+  let trend = "Static";
+  if (Math.abs(slope) < 0.05) trend = "Oscillating";
+  else if (slope > 0.05) trend = "Growing";
+  else trend = "Declining";
+
+  // stability (variance-based)
+  const variance = populationHistory.reduce((a,b)=>a + Math.pow(b-avg,2),0) / n;
+  let stability = "High";
+  if (variance > 500) stability = "Low";
+  else if (variance > 100) stability = "Medium";
+
+  // update UI
+  document.getElementById("statPeak").textContent = peak;
+  document.getElementById("statLow").textContent = low;
+  document.getElementById("statAvg").textContent = avg.toFixed(1);
+  document.getElementById("statSlope").textContent = slope.toFixed(3);
+  document.getElementById("statTrend").textContent = trend;
+  document.getElementById("statStability").textContent = stability;
 }
 
 function doStep(){
