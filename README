@@ -1,0 +1,118 @@
+# Conway’s Game of Life – Advanced Simulator & Pattern Ecosystem
+
+A fully interactive Conway’s Game of Life engine featuring real-time simulation, custom rule editing, RLE import/export, and a built-in pattern creation tool.
+
+---
+
+## 🧠 Overview
+
+This project is a complete Game of Life ecosystem made of two tools:
+
+### 🧬 Simulator (`gol.html`)
+A high-performance cellular automaton engine with advanced visualization and control features.
+
+### 🧩 Pattern Builder (`goladder.html`)
+A visual editor for creating, saving, and exporting custom Game of Life patterns.
+
+### 📦 Pattern Library (`patterns.js`)
+A simple registry of RLE-based patterns used by the simulator.
+
+---
+
+## 🚀 Simulator Features (`gol.html`)
+
+### Simulation Engine
+- Conway’s Game of Life (customizable rules)
+- Rule editor (B/S format UI)
+- Efficient Set-based grid system
+- Cell aging system
+
+### Visualization Modes
+- Grid toggle
+- Heatmap mode (age-based coloring)
+- Cell color mode
+- Ghost trail rendering
+- Full-cell rendering mode
+
+### Analysis Tools
+- Population graph
+- Peak / low / average tracking
+- Growth slope calculation
+- Stability detection (variance-based)
+
+### Navigation & View
+- Zoom in/out (mouse wheel)
+- Pan (drag / shift-drag constraints)
+- Minimap with click-to-jump
+- Reset view option
+
+### Pattern System
+- Built-in patterns from `patterns.js`
+- RLE import (paste or URL)
+- Pattern rotation (0°, 90°, 180°, 270°)
+- Pattern ghost preview
+
+### Chaos Mode
+- Random cell generation with density control
+
+---
+
+## 🎮 Controls
+
+### Simulation
+- `Space` → Play / Pause
+- `Step` → Advance one generation
+- `Ctrl + Z` → Undo
+- `Ctrl + Y` → Redo
+
+### Editing
+- Left click → Draw
+- Right click → Pan
+- Mouse wheel → Zoom
+- `[ / ]` → Brush size
+
+### Modes
+- `E` → Toggle erase mode
+- `F` → Full cell mode
+- `G` → Toggle grid
+- `C` → Cycle colors / heatmap
+- `T` → Toggle ghost mode
+- `R` → Toggle rules panel
+- `H` → Hide UI
+
+### Pattern Tools
+- `V` → Rotate pattern
+- `P` → Toggle ghost preview
+
+---
+
+## 🧩 Pattern Builder (`goladder.html`)
+
+A dedicated tool for designing patterns visually.
+
+### Features
+- Click-to-draw grid editor
+- Erase mode
+- Undo / redo system
+- RLE import
+- Pattern metadata:
+  - codename (internal key)
+  - viewname (display name)
+  - hovername (tooltip)
+- Pattern list manager
+- Export system:
+  - HTML dropdown format
+  - JavaScript object format
+
+---
+
+## 📦 Pattern System (`patterns.js`)
+
+Example structure:
+
+```js
+window.PATTERN_DATA = {
+  glider: "bo$2bo$3o!",
+  blinker: "3o!",
+  switchengine: "2o$2o2$3bo$3bo$4b3o!"
+};
