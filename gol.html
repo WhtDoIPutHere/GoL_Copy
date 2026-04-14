@@ -147,6 +147,7 @@
         <div class="shortcut-item"><span>T</span> <span>Toggle Ghost</span></div>
         <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
+        <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
         <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
         <div class="shortcut-item"><span>Ctrl + Z</span> <span>Undo</span></div>
         <div class="shortcut-item"><span>Ctrl + Y</span> <span>Redo</span></div>
@@ -278,6 +279,8 @@ let undoStack = [];
 let redoStack = [];
 const MAX_HISTORY = 67; // limit memory
 
+let patternRotation = 0; // 0, 90, 180, 270
+
 // Rule sets (default Conway B3/S23)
 let survivalSet = new Set([2,3]);
 let birthSet = new Set([3]);
@@ -341,11 +344,41 @@ function getAgeColor(age){
   return "lime";
 }
 
+function rotatePattern(cells, angle) {
+  // angle must be 0, 90, 180, 270
+  const radians = (angle * Math.PI) / 180;
+
+  // normalize rotation mapping (grid rotation, not true trig float math)
+  return cells.map(([x, y]) => {
+    let rx, ry;
+
+    switch (angle % 360) {
+      case 90:
+        rx = -y;
+        ry = x;
+        break;
+      case 180:
+        rx = -x;
+        ry = -y;
+        break;
+      case 270:
+        rx = y;
+        ry = -x;
+        break;
+      default:
+        rx = x;
+        ry = y;
+    }
+
+    return [rx, ry];
+  });
+}
+
 // Draw
 function draw(){
     if (ghostMode && running) {
     // Faintly "overpaint" the previous frame to create trails
-    ctx.fillStyle = "rgba(1, 1, 1, 0.15)"; 
+    ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   } else {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -419,13 +452,16 @@ if (mode === "chaos") {
 
 // --- PATTERN MODE (Ghost shape + bounding box) ---
 if (mode !== "draw" && mode !== "chaos" && patterns[mode]) {
-  let { bounds, centerX, centerY } = getPatternAnchor(patterns[mode]);
+  let rotated = rotatePattern(patterns[mode], patternRotation);
+let { bounds, centerX, centerY } = getPatternAnchor(rotated);
 
 if (patternGhostPreview) {
   ctx.globalAlpha = 0.25;
   ctx.fillStyle = eraseMode ? "red" : "white";
 
-  for (let [dx, dy] of patterns[mode]) {
+  let rotated = rotatePattern(patterns[mode], patternRotation);
+
+for (let [dx, dy] of rotated) {
     let px = (gx + dx - centerX) * cellSize + offsetX;
     let py = (gy + dy - centerY) * cellSize + offsetY;
     ctx.fillRect(px, py, cellSize, cellSize);
@@ -804,7 +840,7 @@ patternSelectEl.addEventListener("change", (e) => {
   }
 
   // ADD THIS LINE
-  patternGhostPreview = false;
+  patternGhostPreview = true;
 });
 
 function clearGrid(){ 
@@ -1169,6 +1205,11 @@ if (e.ctrlKey && e.key.toLowerCase() === "z") {
   return;
 }
 
+if (e.key.toLowerCase() === "v") {
+  patternRotation = (patternRotation + 90) % 360;
+  console.log("Rotation:", patternRotation);
+}
+
 if (e.ctrlKey && e.key.toLowerCase() === "y") {
   e.preventDefault();
   redo();
@@ -1330,14 +1371,16 @@ function paintCell(x, y, mode, brush, erase) {
 
   // 2. This is your existing "Pattern" logic (keep this)
   if (mode !== "draw") {
-    let {centerX, centerY} = getPatternAnchor(patterns[mode]);
-    for (let [dx, dy] of patterns[mode]) {
-      let ck = key(x + dx - centerX, y + dy - centerY);
-      grid.add(ck);
-      if (!cellAges.has(ck)) cellAges.set(ck, 0);
-    }
-    return;
+  let rotated = rotatePattern(patterns[mode], patternRotation);
+  let {centerX, centerY} = getPatternAnchor(rotated);
+
+  for (let [dx, dy] of rotated) {
+    let ck = key(x + dx - centerX, y + dy - centerY);
+    grid.add(ck);
+    if (!cellAges.has(ck)) cellAges.set(ck, 0);
   }
+  return;
+}
 
   // 3. This is your existing "Draw/Erase" logic (keep this)
   for (let dx = -brush + 1; dx < brush; dx++) {
