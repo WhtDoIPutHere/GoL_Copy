@@ -174,10 +174,10 @@
   </div>
 
   <div id="stats" style="font-size: 12px; margin-top: 6px;">
-    Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span>
+    Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span> | FPS: <span id="fpsCount">0</span>
   </div>
   
-<div class="row" style="align-items:flex-start; margin-top: 8px; gap:10px;">
+<div class="row" style="align-items:center; margin-top: 8px; gap:10px;">
   <canvas id="minimapCanvas" width="80" height="80" style="border: 1px solid #555;"></canvas>
   <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555;"></canvas>
 
@@ -284,6 +284,10 @@ let patternRotation = 0; // 0, 90, 180, 270
 // Rule sets (default Conway B3/S23)
 let survivalSet = new Set([2,3]);
 let birthSet = new Set([3]);
+
+let fps = 0;
+let frameCount = 0;
+let lastFpsTime = performance.now();
 
 // Patterns
 const patterns = {};
@@ -635,6 +639,16 @@ let lastTime=0;
 function loop(t){
   requestAnimationFrame(loop);
 
+  // --- FPS CALC ---
+  frameCount++;
+  if (t - lastFpsTime >= 1000) {
+    fps = frameCount;
+    frameCount = 0;
+    lastFpsTime = t;
+
+    document.getElementById("fpsCount").textContent = fps;
+  }
+
   let speed=document.getElementById("speed").value;
 
   if(running && t-lastTime>1000/speed){
@@ -946,6 +960,16 @@ function resetView(){
 }
 
 function parseRLE(rle) {
+  // --- CLEAN INPUT ---
+  rle = rle
+    .split("\n")
+    .filter(line => 
+      !line.startsWith("#") &&     // remove comments
+      !line.startsWith("x")        // remove header
+    )
+    .join("")
+    .replace(/\s+/g, "");          // remove whitespace
+
   let cells = [];
   let x = 0, y = 0;
   let count = "";
