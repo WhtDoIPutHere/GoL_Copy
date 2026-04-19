@@ -1,1 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Game of Life Pattern Library</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+    }
 
+    header {
+      padding: 10px;
+      background: #1a1a1a;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input {
+      padding: 6px;
+      width: 300px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #333;
+      text-align: left;
+    }
+
+    th {
+      background: #222;
+      cursor: pointer;
+    }
+
+    tr:hover {
+      background: #1f1f1f;
+    }
+
+    .container {
+      padding: 10px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h3 style="margin:0;">Pattern Library</h3>
+  <input id="search" placeholder="Search patterns..." />
+</header>
+
+<div class="container">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Rule</th>
+        <th>Cells</th>
+        <th>Bounding Box</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
