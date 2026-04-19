@@ -102,11 +102,11 @@ table {
 }
 
 /* column sizing */
-th:nth-child(1), td:nth-child(1) { width: 18%; }
-th:nth-child(2), td:nth-child(2) { width: 42%; }
+th:nth-child(1), td:nth-child(1) { width: 10%; }
+th:nth-child(2), td:nth-child(2) { width: 98.5%; }
 th:nth-child(3), td:nth-child(3) { width: 10%; }
 th:nth-child(4), td:nth-child(4) { width: 10%; }
-th:nth-child(5), td:nth-child(5) { width: 20%; }
+th:nth-child(5), td:nth-child(5) { width: 10%; }
 
 th, td {
   padding: 10px 12px;
@@ -142,6 +142,7 @@ tbody tr:hover {
 /* DESCRIPTION CLAMP */
 .desc {
   display: -webkit-box;
+  /* VSCode ignore: line-clamp */
   -webkit-line-clamp: 2;   /* max lines */
   -webkit-box-orient: vertical;
   overflow: hidden;
