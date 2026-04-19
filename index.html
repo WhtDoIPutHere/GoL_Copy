@@ -3,56 +3,152 @@
 <head>
   <meta charset="UTF-8">
   <title>Game of Life Pattern Library</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      background: #111;
-      color: #eee;
-    }
+<style>
+  body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #111;
+    color: #eee;
+  }
 
-    header {
-      padding: 10px;
-      background: #1a1a1a;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
+  header {
+    padding: 15px;
+    background: #1a1a1a;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
 
-    input {
-      padding: 6px;
-      width: 300px;
-    }
+  input {
+    padding: 8px;
+    width: 320px;
+  }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
+  .container {
+    padding: 20px;
+  }
 
-    th, td {
-      padding: 8px;
-      border-bottom: 1px solid #333;
-      text-align: left;
-    }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
 
-    th {
-      background: #222;
-      cursor: pointer;
-    }
+  th {
+    background: #222;
+    cursor: pointer;
+    position: sticky;
+    top: 0;
+  }
 
-    tr:hover {
-      background: #1f1f1f;
-    }
+  tr:nth-child(even) {
+    background: #151515;
+  }
 
-    .container {
-      padding: 10px;
-    }
+  tr:nth-child(odd) {
+    background: #111;
+  }
 
-    .small {
-      font-size: 12px;
-      color: #aaa;
-    }
-  </style>
+  tr:hover {
+    background: #222;
+  }
+
+  td, th {
+    border-right: 1px solid #2a2a2a;
+  }
+
+  td:last-child, th:last-child {
+    border-right: none;
+  }
+
+  .small {
+    font-size: 12px;
+    color: #aaa;
+  }
+
+  .pagination {
+    padding: 10px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  button {
+    background: #222;
+    color: white;
+    border: 1px solid #333;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #333;
+  }
+
+  .active {
+    background: #444;
+  }
+
+  /* === TABLE LAYOUT FIXES === */
+
+.container {
+  padding: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed; /* IMPORTANT: prevents column jumping */
+}
+
+/* column sizing */
+th:nth-child(1), td:nth-child(1) { width: 18%; }
+th:nth-child(2), td:nth-child(2) { width: 42%; }
+th:nth-child(3), td:nth-child(3) { width: 10%; }
+th:nth-child(4), td:nth-child(4) { width: 10%; }
+th:nth-child(5), td:nth-child(5) { width: 20%; }
+
+th, td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #333;
+  border-right: 1px solid #2a2a2a;
+
+  text-align: left;
+  font-size: 13px;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+th:last-child, td:last-child {
+  border-right: none;
+}
+
+/* alternating row colors */
+tbody tr:nth-child(odd) {
+  background: #151515;
+}
+
+tbody tr:nth-child(even) {
+  background: #101010;
+}
+
+/* nicer hover */
+tbody tr:hover {
+  background: #222;
+}
+
+/* DESCRIPTION CLAMP */
+.desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;   /* max lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
+}
+</style>
 </head>
 <body>
 
@@ -65,15 +161,16 @@
   <table>
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Description</th>
-        <th>Rule</th>
-        <th>Cells</th>
-        <th>Bounding Box</th>
+        <th onclick="sortBy('Name')">Name</th>
+        <th onclick="sortBy('Description')">Description</th>
+        <th onclick="sortBy('Rule')">Rule</th>
+        <th onclick="sortBy('Cells')">Cells</th>
+        <th onclick="sortBy('BBox')">Bounding Box</th>
       </tr>
     </thead>
     <tbody id="tableBody"></tbody>
   </table>
+  <div class="pagination" id="pagination"></div>
 </div>
 
 <script src="script.js"></script>
