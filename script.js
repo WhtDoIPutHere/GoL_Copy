@@ -4,8 +4,8 @@ let filtered = [];
 let currentPage = 1;
 const pageSize = 50;
 
-let sortKey = "Name";
-let sortDir = 1; // 1 = asc, -1 = desc
+let sortKey = null;
+let sortDir = 0; // 0 = no sort, 1 = asc, -1 = desc
 
 fetch("patterns.json")
   .then(res => res.json())
@@ -33,6 +33,8 @@ function applyFilter() {
 }
 
 function sortData() {
+  if (!sortKey || sortDir === 0) return;
+
   filtered.sort((a, b) => {
     let va, vb;
 
@@ -42,10 +44,8 @@ function sortData() {
     }
 
     else if (sortKey === "BBox") {
-      const areaA = bboxArea(a);
-      const areaB = bboxArea(b);
-      va = areaA;
-      vb = areaB;
+      va = bboxArea(a);
+      vb = bboxArea(b);
     }
 
     else {
@@ -70,6 +70,8 @@ function render() {
   const body = document.getElementById("tableBody");
   body.innerHTML = "";
 
+  updateSortIndicators();
+
   const start = (currentPage - 1) * pageSize;
   const pageItems = filtered.slice(start, start + pageSize);
 
@@ -78,12 +80,12 @@ function render() {
 
     row.innerHTML = `
       <td>${p.Name || ""}</td>
-      <td class="desc" title="${p.Description || ""}">
-        ${p.Description || ""}
+      <td class="desc" title="${p.Description || " "}">
+        ${p.Description || " "}
       </td>
-      <td>${p.Rule || ""}</td>
-      <td>${p.Cells || ""}</td>
-      <td>${p["Bounding Box"] || ""}</td>
+      <td><span class="rule">${p.Rule || ""}</span></td>
+      <td class="num">${p.Cells || ""}</td>
+      <td><span class="bbox">${p["Bounding Box"] || ""}</span></td>
     `;
 
     body.appendChild(row);
@@ -116,11 +118,35 @@ function renderPagination() {
 // sorting from header clicks
 function sortBy(key) {
   if (sortKey === key) {
-    sortDir *= -1;
+    if (sortDir === 1) sortDir = -1;
+    else if (sortDir === -1) {
+      sortKey = null;
+      sortDir = 0;
+    } else {
+      sortDir = 1;
+    }
   } else {
     sortKey = key;
     sortDir = 1;
   }
 
   applyFilter();
+}
+
+function updateSortIndicators() {
+  const keys = ["Name", "Description", "Rule", "Cells", "BBox"];
+
+  for (let k of keys) {
+    const el = document.getElementById("h-" + k);
+    if (!el) continue;
+
+    let label = k === "BBox" ? "Bounding Box" : k;
+
+    if (sortKey === k) {
+      if (sortDir === 1) label += " ↑";
+      else if (sortDir === -1) label += " ↓";
+    }
+
+    el.textContent = label;
+  }
 }
