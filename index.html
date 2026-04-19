@@ -101,12 +101,14 @@ table {
   table-layout: fixed; /* IMPORTANT: prevents column jumping */
 }
 
-/* column sizing */
-th:nth-child(1), td:nth-child(1) { width: 10%; }
-th:nth-child(2), td:nth-child(2) { width: 98.5%; }
-th:nth-child(3), td:nth-child(3) { width: 10%; }
-th:nth-child(4), td:nth-child(4) { width: 10%; }
-th:nth-child(5), td:nth-child(5) { width: 10%; }
+/* FIXED WIDTH COLUMNS */
+th:nth-child(1), td:nth-child(1) { width: 240px; } /* Name */
+th:nth-child(3), td:nth-child(3) { width: 100px; text-align: left; } /* Rule */
+th:nth-child(4), td:nth-child(4) { width: 80px; text-align: left; }  /* Cells */
+th:nth-child(5), td:nth-child(5) { width: 120px; text-align: left; } /* Bounding Box */
+
+/* DESCRIPTION TAKES REMAINING SPACE */
+th:nth-child(2), td:nth-child(2) { width: auto; }
 
 th, td {
   padding: 10px 12px;
@@ -116,7 +118,11 @@ th, td {
   text-align: left;
   font-size: 13px;
 
+  /* keep single-line behavior for non-description */
+td:not(.desc) {
   white-space: nowrap;
+}
+
   overflow: hidden;
   text-overflow: ellipsis;
 }
