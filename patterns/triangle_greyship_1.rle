@@ -1,0 +1,19 @@
+#C 45-90-45-triangle greyship with p2 technology except on backslope
+#C Hartmut Holzwart  4 Jul 2005
+x = 85, y = 74, rule = B3/S23
+48bobo$47bobbo$46boo$45bo3bo$44b3obo$7bo35bo$4b4o35b6o$4boo35bo9boboo$
+bbo38b11ob3o$bb4o33bo16bo$bo37b16obbo$3obbo31bo19boo$b3o33b22o$bbo32bo
+21bo$3b3obo27b22o$3bobboo25bo25boboo$4b3o26b27ob3o$6bo24bo32bo$4bo26b
+32obbo$4bobo22bo35boo$3bo25b38o$4bobo20bo37bo$4bo22b38o$6bo18bo41boboo
+$4b3o18b43ob3o$3bobboo15bo48bo$3b3obo15b48obbo$bbo18bo51boo$b3o17b54o$
+3obbo13bo53bo$bo17b54o$bb4o11bo57boboo$bbo14b59ob3o$4boo9bo64bo$4b4obo
+5b64obbo$7boobobbo67boo$9boobb70o$10boo69bo$11b70o$$13b70obo$12boo69b
+oo$11boobb4obobob5obobb5obobob5obobb5obobob5obobb5obobob3o$9boobobbo3b
+oobobbo4bobobo3boobobbo4bobobo3boobobbo4bobobo3boobobboo$6b4obo5boo3bo
+3boo8boo3bo3boo8boo3bo3boo8boo3bo$6boo9b4o6bobbo5b4o6bobbo5b4o6bobbo5b
+4o$4bo15bobo5bobo8bobo5bobo8bobo5bobo8bobo$4b4o14bo9bo8bo9bo8bo9bo8bo$
+3bo18boo8bo8boo8bo8boo8bo8boo$bb3obbo15b3o6boobo6b3o6boobo6b3o6boobo6b
+3o$3b3o19bo9bo8bo9bo8bo9bo8bo$4bo$5b3obo$5bobboo$6b3o$8bo$6bo$6bobo$5b
+o$6bobo$6bo$8bo$6b3o$5bobboo$5b3obo$4bo$3b3o$bb3obbo$3bo$4b4o$4bo$6boo
+$6b4o$9bo!
+
