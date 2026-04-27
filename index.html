@@ -39,6 +39,7 @@
     cursor: pointer;
     position: sticky;
     top: 0;
+    z-index: 5;
   }
 
   tr:nth-child(even) {
@@ -92,10 +93,9 @@
   /* === TABLE LAYOUT FIXES === */
 
 .container {
-  padding-left: 500px;
-  padding-right: 500px;
-  padding-bottom: 20;
-  padding-top: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 table {
@@ -117,17 +117,15 @@ th, td {
   padding: 10px 12px;
   border-bottom: 1px solid #333;
   border-right: 1px solid #2a2a2a;
-
   text-align: left;
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
   /* keep single-line behavior for non-description */
 td:not(.desc) {
   white-space: nowrap;
-}
-
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 th:last-child, td:last-child {

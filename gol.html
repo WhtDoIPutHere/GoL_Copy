@@ -292,6 +292,34 @@ let lastFpsTime = performance.now();
 // Patterns
 const patterns = {};
 
+async function loadPatternFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const name = params.get("pattern");
+
+  if (!name) return;
+
+  try {
+    const url = `patterns/${name}.rle`;
+    const rleText = await fetch(url).then(r => r.text());
+
+    let cells = parseRLE(rleText);
+
+    // center pattern roughly in view
+    grid.clear();
+    cellAges.clear();
+
+    for (let [x, y] of cells) {
+      const k = key(x, y);
+      grid.add(k);
+      cellAges.set(k, 0);
+    }
+
+  } catch (e) {
+    console.error("Failed to load pattern:", name, e);
+    alert("Pattern failed to load: " + name);
+  }
+}
+
 const key = (x,y)=>`${x},${y}`;
 const parse = k=>k.split(',').map(Number);
 
@@ -1512,12 +1540,13 @@ if (!window.PATTERN_DATA) {
 }
 
 window.addEventListener("load", () => {
-  if (!window.PATTERN_DATA) {
-    console.error("PATTERN_DATA missing!");
-    return;
+  if (window.PATTERN_DATA) {
+    loadPatternsFromRLE();
   }
-  loadPatternsFromRLE();
+
+  loadPatternFromURL();
 });
+
 </script>
 
 </body>

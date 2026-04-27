@@ -78,15 +78,19 @@ function render() {
   for (let p of pageItems) {
     const row = document.createElement("tr");
 
-    row.innerHTML = `
-      <td>${p.Name || ""}</td>
-      <td class="desc" title="${p.Description || " "}">
-        ${p.Description || " "}
-      </td>
-      <td><span class="rule">${p.Rule || ""}</span></td>
-      <td class="num">${p.Cells || ""}</td>
-      <td><span class="bbox">${p["Bounding Box"] || ""}</span></td>
-    `;
+row.innerHTML = `
+  <td>
+    <a href="gol.html?pattern=${encodeURIComponent(p.Name)}" style="color:#8ecae6; text-decoration: underline; cursor:pointer;">
+      ${p.Name || ""}
+    </a>
+  </td>
+  <td class="desc" title="${p.Description || " "}">
+    ${p.Description || " "}
+  </td>
+  <td><span class="rule">${p.Rule || ""}</span></td>
+  <td class="num">${p.Cells || ""}</td>
+  <td><span class="bbox">${p["Bounding Box"] || ""}</span></td>
+`;
 
     body.appendChild(row);
   }
