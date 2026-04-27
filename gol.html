@@ -292,6 +292,39 @@ let lastFpsTime = performance.now();
 // Patterns
 const patterns = {};
 
+function fitViewToPattern(cells, padding = 0.2) {
+  if (!cells || cells.length === 0) return;
+
+  let minX = Infinity, minY = Infinity;
+  let maxX = -Infinity, maxY = -Infinity;
+
+  for (let [x, y] of cells) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+
+  const patternWidth = maxX - minX + 1;
+  const patternHeight = maxY - minY + 1;
+
+  const canvasW = canvas.width;
+  const canvasH = canvas.height;
+
+  // Add padding around pattern
+  const scaleX = canvasW / (patternWidth * (1 + padding));
+  const scaleY = canvasH / (patternHeight * (1 + padding));
+
+  cellSize = Math.max(2, Math.min(scaleX, scaleY)); // avoid insane zoom
+
+  // Center pattern
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  offsetX = canvasW / 2 - centerX * cellSize;
+  offsetY = canvasH / 2 - centerY * cellSize;
+}
+
 async function loadPatternFromURL() {
   const params = new URLSearchParams(window.location.search);
   const name = params.get("pattern");
@@ -304,15 +337,19 @@ async function loadPatternFromURL() {
 
     let cells = parseRLE(rleText);
 
-    // center pattern roughly in view
-    grid.clear();
-    cellAges.clear();
+// clear world
+grid.clear();
+cellAges.clear();
 
-    for (let [x, y] of cells) {
-      const k = key(x, y);
-      grid.add(k);
-      cellAges.set(k, 0);
-    }
+// add cells
+for (let [x, y] of cells) {
+  const k = key(x, y);
+  grid.add(k);
+  cellAges.set(k, 0);
+}
+
+// IMPORTANT: fit camera AFTER loading
+fitViewToPattern(cells, 0.3);
 
   } catch (e) {
     console.error("Failed to load pattern:", name, e);
