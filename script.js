@@ -80,7 +80,8 @@ function render() {
 
 row.innerHTML = `
   <td>
-    <a href="gol.html?pattern=${encodeURIComponent(p.Name)}" style="color:#8ecae6; text-decoration: underline; cursor:pointer;">
+    <a href="gol.html?file=${encodeURIComponent(p["Pattern File"])}"
+       style="color:#8ecae6; text-decoration: underline; cursor:pointer;">
       ${p.Name || ""}
     </a>
   </td>

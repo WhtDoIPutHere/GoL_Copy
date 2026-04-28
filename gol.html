@@ -103,6 +103,22 @@
 </head>
 <body>
 
+<div id="terminal" style="
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  width: 420px;
+  height: 160px;
+  background: rgba(0,0,0,0.85);
+  color: #00ff88;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid #333;
+  z-index: 9999;
+"></div>
+
 <div id="ui">
     <button id="collapseBtn" onclick="toggleUI()" style="position:absolute; right:-50px; top:0; width:30px; height:30px; border-radius:0 5px 5px 0; background:rgba(0,0,0,0.7); color:white; border:none; cursor:pointer;">☰</button>
   <div class="row">
@@ -327,38 +343,59 @@ function fitViewToPattern(cells, padding = 0.2) {
 
 async function loadPatternFromURL() {
   const params = new URLSearchParams(window.location.search);
-  const name = params.get("pattern");
+  const file = params.get("file");
 
-  if (!name) return;
+  if (!file) return;
 
   try {
-    const url = `patterns/${name}.rle`;
-    const rleText = await fetch(url).then(r => r.text());
+    log(`Loading file: ${file}`);
+
+    const url = `patterns/${file}`;
+    log(`Fetching: ${url}`);
+
+    const rleText = await fetch(url).then(r => {
+      log("Fetch complete");
+      return r.text();
+    });
+
+    log(`RLE size: ${rleText.length}`);
 
     let cells = parseRLE(rleText);
 
-// clear world
-grid.clear();
-cellAges.clear();
+    log(`Parsed cells: ${cells.length}`);
 
-// add cells
-for (let [x, y] of cells) {
-  const k = key(x, y);
-  grid.add(k);
-  cellAges.set(k, 0);
-}
+    grid.clear();
+    cellAges.clear();
 
-// IMPORTANT: fit camera AFTER loading
-fitViewToPattern(cells, 0.3);
+    for (let [x, y] of cells) {
+      const k = key(x, y);
+      grid.add(k);
+      cellAges.set(k, 0);
+    }
+
+    fitViewToPattern(cells, 0.3);
+
+    log("Pattern loaded + fitted");
 
   } catch (e) {
-    console.error("Failed to load pattern:", name, e);
-    alert("Pattern failed to load: " + name);
+    log("ERROR: " + e.message);
+    console.error(e);
   }
 }
 
 const key = (x,y)=>`${x},${y}`;
 const parse = k=>k.split(',').map(Number);
+
+function log(msg) {
+  const term = document.getElementById("terminal");
+  if (!term) return;
+
+  const time = new Date().toLocaleTimeString();
+  term.innerHTML += `[${time}] ${msg}<br>`;
+  term.scrollTop = term.scrollHeight;
+
+  console.log(msg);
+}
 
 function createSnapshot() {
   return {
