@@ -1,3 +1,61 @@
+let currentTab = "all";
+
+function getFavorites() {
+  return JSON.parse(localStorage.getItem("favorites") || "[]");
+}
+
+function getRecent() {
+  return JSON.parse(localStorage.getItem("recent") || "[]");
+}
+
+function saveFavorites(list) {
+  localStorage.setItem("favorites", JSON.stringify(list));
+}
+
+function saveRecent(list) {
+  localStorage.setItem("recent", JSON.stringify(list));
+}
+
+function isFavorite(file) {
+  return getFavorites().includes(file);
+}
+
+function toggleFavorite(file) {
+  let favs = getFavorites();
+
+  if (favs.includes(file)) {
+    favs = favs.filter(f => f !== file);
+  } else {
+    favs.push(file);
+  }
+
+  saveFavorites(favs);
+  render();
+}
+
+function addRecent(file) {
+  let recent = getRecent();
+
+  // remove if already exists
+  recent = recent.filter(f => f !== file);
+
+  // add to front
+  recent.unshift(file);
+
+  // limit size
+  if (recent.length > 50) {
+    recent.pop();
+  }
+
+  saveRecent(recent);
+}
+
+function setTab(tab) {
+  currentTab = tab;
+  currentPage = 1;
+  applyFilter();
+}
+
 let patterns = [];
 let filtered = [];
 
@@ -23,7 +81,19 @@ document.getElementById("search").addEventListener("input", () => {
 function applyFilter() {
   const q = document.getElementById("search").value.toLowerCase();
 
-  filtered = patterns.filter(p =>
+  let base = patterns;
+
+  if (currentTab === "favorites") {
+    const favs = getFavorites();
+    base = patterns.filter(p => favs.includes(p["Pattern File"]));
+  }
+
+  if (currentTab === "recent") {
+    const rec = getRecent();
+    base = rec.map(f => patterns.find(p => p["Pattern File"] === f)).filter(Boolean);
+  }
+
+  filtered = base.filter(p =>
     (p.Name || "").toLowerCase().includes(q) ||
     (p.Description || "").toLowerCase().includes(q)
   );
@@ -80,8 +150,15 @@ function render() {
 
 row.innerHTML = `
   <td>
+    <span onclick="toggleFavorite('${p["Pattern File"]}')"
+          style="cursor:pointer;">
+      ${isFavorite(p["Pattern File"]) ? "⭐" : "☆"}
+    </span>
+  </td>
+  <td>
     <a href="gol.html?file=${encodeURIComponent(p["Pattern File"])}"
-       style="color:#8ecae6; text-decoration: underline; cursor:pointer;">
+       onclick="addRecent('${p["Pattern File"]}')"
+       style="color:#8ecae6; text-decoration: underline;">
       ${p.Name || ""}
     </a>
   </td>
