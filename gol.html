@@ -105,10 +105,10 @@
 
 <div id="terminal" style="
   position: fixed;
-  bottom: 10px;
+  bottom: 37px;
   right: 10px;
   width: 420px;
-  height: 160px;
+  height: 133px;
   background: rgba(0,0,0,0.85);
   color: #00ff88;
   font-family: monospace;
@@ -118,6 +118,21 @@
   border: 1px solid #333;
   z-index: 9999;
 "></div>
+
+<input id="terminalInput" placeholder="Type command..." style="
+  position: fixed;
+  bottom: 5px;
+  right: 5px;
+  width: 428px;
+  height: 24px;
+  background: black;
+  color: #00ff88;
+  border: 1px solid #333;
+  font-family: monospace;
+  font-size: 11px;
+  padding-left: 6px;
+  z-index: 10000;
+">
 
 <div id="ui">
     <button id="collapseBtn" onclick="toggleUI()" style="position:absolute; right:-50px; top:0; width:30px; height:30px; border-radius:0 5px 5px 0; background:rgba(0,0,0,0.7); color:white; border:none; cursor:pointer;">☰</button>
@@ -249,6 +264,8 @@
 <canvas id="canvas"></canvas>
 <script src="patterns.js"></script>
 <script>
+
+  let lastLogTime = 0;
     
 function toggleUI() {
   const ui = document.getElementById("ui");
@@ -304,6 +321,9 @@ let birthSet = new Set([3]);
 let fps = 0;
 let frameCount = 0;
 let lastFpsTime = performance.now();
+
+let drawCellCount = 0;
+let eraseCellCount = 0;
 
 // Patterns
 const patterns = {};
@@ -383,15 +403,34 @@ async function loadPatternFromURL() {
   }
 }
 
+function loadPatternFromFile(file) {
+  window.location.search = "?file=" + encodeURIComponent(file);
+}
+
 const key = (x,y)=>`${x},${y}`;
 const parse = k=>k.split(',').map(Number);
 
-function log(msg) {
+function log(msg, type = "info") {
   const term = document.getElementById("terminal");
   if (!term) return;
 
+  // ✅ THROTTLE GOES RIGHT HERE
+  if (type === "action") {
+    const now = performance.now();
+    if (now - lastLogTime < 50) return;
+    lastLogTime = now;
+  }
+
   const time = new Date().toLocaleTimeString();
-  term.innerHTML += `[${time}] ${msg}<br>`;
+
+  let color = "#00ff88"; // default
+
+  if (type === "warn") color = "orange";
+  if (type === "error") color = "red";
+  if (type === "action") color = "#4cc9f0";
+  if (type === "system") color = "#aaa";
+
+  term.innerHTML += `<span style="color:${color}">[${time}] ${msg}</span><br>`;
   term.scrollTop = term.scrollHeight;
 
   console.log(msg);
@@ -780,6 +819,8 @@ function togglePlay(){
 
   running = !running;
   updateButton();
+
+  log(running ? "Simulation started" : "Simulation paused", "action");
 }
 
 function updateButton(){
@@ -807,6 +848,8 @@ function updateGridButton(){
 function toggleGrid(){
   showGrid = !showGrid;
   updateGridButton();
+
+  log("Grid " + (showGrid ? "ON" : "OFF"), "action");
 }
 
 function updateFullCellButton(){
@@ -823,6 +866,7 @@ function updateFullCellButton(){
 function toggleFullCell(){
   fullCellMode = !fullCellMode;
   updateFullCellButton();
+  log("Full Cell " + (fullCellMode ? "ON" : "OFF"), "action");
 }
 function updateHeatmapButton(){
   const btn = document.getElementById("heatmapBtn");
@@ -842,6 +886,8 @@ function toggleHeatmap(){
     updateColorButton();
   }
   updateHeatmapButton();
+
+  log("Heatmap " + (heatmapMode ? "ON" : "OFF"), "action");
 }
 
 function toggleGhost() {
@@ -854,6 +900,8 @@ function toggleGhost() {
     btn.textContent = "Ghost";
     btn.className = "paused";
   }
+
+  log("Ghost mode " + (ghostMode ? "ON" : "OFF"), "action");
 }
 
 function updateColorButton(){
@@ -874,6 +922,8 @@ function toggleColors(){
     updateHeatmapButton();
   }
   updateColorButton();
+
+  log("Colors " + (colorMode ? "ON" : "OFF"), "action");
 }
 
 function updateEraseButton(){
@@ -902,6 +952,8 @@ function toggleErase(){
   }
 
   updateEraseButton();
+
+  log("Erase mode " + (eraseMode ? "ON" : "OFF"), "action");
 }
 
 minimapCanvas.addEventListener("click", (e) => {
@@ -975,6 +1027,7 @@ document.getElementById("statSlope").textContent = "0";
 document.getElementById("statTrend").textContent = "-";
 document.getElementById("statStability").textContent = "-";
 
+  log("Grid cleared", "action");
 }
 
 function updateStats(){
@@ -1175,13 +1228,26 @@ async function importRLE(){
     let patternName = "imported_" + Date.now();
     patterns[patternName] = cells;
 
+    // Immediately place imported pattern at center
+const centerX = Math.floor((-offsetX + canvas.width / 2) / cellSize);
+const centerY = Math.floor((-offsetY + canvas.height / 2) / cellSize);
+
+for (let [dx, dy] of cells) {
+  const k = key(centerX + dx, centerY + dy);
+  grid.add(k);
+  cellAges.set(k, 0);
+}
+
+log(`Imported + placed pattern (${cells.length} cells)`, "action");
+
     let select = document.getElementById("patternSelect");
     let option = document.createElement("option");
     option.value = patternName;
     option.textContent = "Imported";
     option.title = cells.length + " cells";
     select.appendChild(option);
-    select.value = patternName;
+select.value = patternName;
+select.dispatchEvent(new Event("change"));
 
     document.getElementById("rleInput").value = "";
     alert("Pattern imported! (" + cells.length + " cells)");
@@ -1233,6 +1299,8 @@ function onRuleCheckboxChange(type, n, checked){
     else birthSet.delete(n);
   }
   updateRuleString();
+
+  log(`Rule updated → ${document.getElementById('ruleString').textContent}`, "action");
 }
 
 function updateRuleString(){
@@ -1266,6 +1334,26 @@ function resetRules(){
   updateRuleString();
 }
 
+function applyRuleString(ruleStr) {
+  const match = ruleStr.match(/B(\d*)\/S(\d*)/i);
+
+  if (!match) {
+    log("Invalid rule format. Use B3/S23");
+    return;
+  }
+
+  const b = match[1].split("").map(Number);
+  const s = match[2].split("").map(Number);
+
+  birthSet = new Set(b);
+  survivalSet = new Set(s);
+
+  renderRuleBoxes();
+  updateRuleString();
+
+  log("Rule set to " + ruleStr.toUpperCase());
+}
+  
 // Rules panel toggling
 let rulesOpen = false;
 function toggleRules(){
@@ -1279,6 +1367,8 @@ function toggleRules(){
     panel.style.display = 'none';
     btn.className = 'paused';
   }
+
+  log("Rules panel " + (rulesOpen ? "OPENED" : "CLOSED"), "action");
 }
 
 function restoreSnapshot(snapshot) {
@@ -1299,6 +1389,8 @@ function undo() {
 
   const prev = undoStack.pop();
   restoreSnapshot(prev);
+
+  log("Undo", "action");
 }
 
 function redo() {
@@ -1308,6 +1400,8 @@ function redo() {
 
   const next = redoStack.pop();
   restoreSnapshot(next);
+
+  log("Redo", "action");
 }
 
 // Keys
@@ -1333,7 +1427,7 @@ if (e.ctrlKey && e.key.toLowerCase() === "z") {
 
 if (e.key.toLowerCase() === "v") {
   patternRotation = (patternRotation + 90) % 360;
-  console.log("Rotation:", patternRotation);
+  log("Pattern rotated to " + patternRotation + "°", "action");
 }
 
 if (e.ctrlKey && e.key.toLowerCase() === "y") {
@@ -1425,6 +1519,8 @@ canvas.addEventListener("mousedown",e=>{
     panning=true;
   } else {
     drawing=true;
+    drawCellCount = 0;
+    eraseCellCount = 0;
 
     // SAVE STATE BEFORE MODIFYING GRID
     undoStack.push(createSnapshot());
@@ -1468,11 +1564,22 @@ canvas.addEventListener("mousemove",e=>{
   }
 });
 
-canvas.addEventListener("mouseup",()=>{
-  drawing=false;
-  panning=false;
-  lastDrawnCell=null;
-  lastDrawCoords=null;
+canvas.addEventListener("mouseup", () => {
+
+  const brush = document.getElementById("brushSize").value;
+
+  if (drawing && drawCellCount > 0) {
+    log(`Drawn ${drawCellCount} cells, size ${brush}`, "action");
+  }
+
+  if (drawing && eraseCellCount > 0) {
+    log(`Erased ${eraseCellCount} cells, size ${brush}`, "action");
+  }
+
+  drawing = false;
+  panning = false;
+  lastDrawnCell = null;
+  lastDrawCoords = null;
   orthoAxis = null;
 });
 
@@ -1480,6 +1587,23 @@ canvas.addEventListener("contextmenu",e=>e.preventDefault());
 
 // Place
 function paintCell(x, y, mode, brush, erase) {
+
+  if (!erase && mode === "draw") {
+  
+}
+
+if (erase) {
+  
+}
+
+if (mode !== "draw" && mode !== "chaos") {
+  
+}
+
+if (mode === "chaos") {
+  
+}
+  
   // 1. Add this Chaos logic first
   if (mode === "chaos") {
   let density = parseInt(document.getElementById("chaosDensity").value) / 100;
@@ -1487,7 +1611,10 @@ function paintCell(x, y, mode, brush, erase) {
     for (let dy = -brush + 1; dy < brush; dy++) {
       if (Math.random() < density) { 
         let ck = key(x + dx, y + dy);
-        grid.add(ck);
+        if (!grid.has(ck)) {
+  drawCellCount++;
+}
+grid.add(ck);
         if (!cellAges.has(ck)) cellAges.set(ck, 0);
       }
     }
@@ -1495,14 +1622,22 @@ function paintCell(x, y, mode, brush, erase) {
   return;
 }
 
+  if (mode !== "draw" && mode !== "chaos" && !patterns[mode]) {
+  log("Invalid pattern: " + mode, "error");
+  return;
+}
+
   // 2. This is your existing "Pattern" logic (keep this)
-  if (mode !== "draw") {
+  if (mode !== "draw" && mode !== "chaos" && patterns[mode]) {
   let rotated = rotatePattern(patterns[mode], patternRotation);
   let {centerX, centerY} = getPatternAnchor(rotated);
 
   for (let [dx, dy] of rotated) {
     let ck = key(x + dx - centerX, y + dy - centerY);
-    grid.add(ck);
+    if (!grid.has(ck)) {
+  drawCellCount++;
+}
+grid.add(ck);
     if (!cellAges.has(ck)) cellAges.set(ck, 0);
   }
   return;
@@ -1512,12 +1647,20 @@ function paintCell(x, y, mode, brush, erase) {
   for (let dx = -brush + 1; dx < brush; dx++) {
     for (let dy = -brush + 1; dy < brush; dy++) {
       let cell = key(x + dx, y + dy);
+      
       if (erase) {
-        grid.delete(cell);
-        cellAges.delete(cell);
-      } else {
-        grid.add(cell);
-        if (!cellAges.has(cell)) cellAges.set(cell, 0);
+  if (grid.has(cell)) {
+    eraseCellCount++;
+  }
+  grid.delete(cell);
+  cellAges.delete(cell);
+}
+      else {if (!grid.has(cell)) {
+  drawCellCount++; // ✅ count only new cells
+}
+
+grid.add(cell);
+if (!cellAges.has(cell)) cellAges.set(cell, 0);
       }
     }
   }
@@ -1563,7 +1706,7 @@ function place(e){
     let ty = lineStart[1] + Math.round(dy * i / steps);
     let k = key(tx,ty);
 
-    if(k === lastDrawnCell && i !== steps) continue;
+  if(k === lastDrawnCell) continue;
     lastDrawnCell = k;
 
     paintCell(tx, ty, mode, brush, erase);
@@ -1621,6 +1764,121 @@ window.addEventListener("load", () => {
   loadPatternFromURL();
 });
 
+// ==========================
+// TERMINAL COMMAND SYSTEM
+// ==========================
+
+const termInput = document.getElementById("terminalInput");
+
+let commandHistory = [];
+let historyIndex = -1;
+
+termInput.addEventListener("keydown", e => {
+
+  // ENTER → run command
+  if (e.key === "Enter") {
+    const cmd = termInput.value.trim();
+    if (!cmd) return;
+
+    commandHistory.push(cmd);
+    historyIndex = commandHistory.length;
+
+    termInput.value = "";
+
+    log("> " + cmd);
+    runCommand(cmd);
+  }
+
+  // ↑ history
+  if (e.key === "ArrowUp") {
+    if (historyIndex > 0) {
+      historyIndex--;
+      termInput.value = commandHistory[historyIndex];
+    }
+  }
+
+  // ↓ history
+  if (e.key === "ArrowDown") {
+    if (historyIndex < commandHistory.length - 1) {
+      historyIndex++;
+      termInput.value = commandHistory[historyIndex];
+    } else {
+      termInput.value = "";
+    }
+  }
+});
+
+function runCommand(cmd) {
+  const args = cmd.split(" ");
+  const base = args[0].toLowerCase();
+
+  switch (base) {
+
+    case "clear":
+      document.getElementById("terminal").innerHTML = "";
+      break;
+
+    case "play":
+      running = true;
+      updateButton();
+      log("Running");
+      break;
+
+    case "pause":
+      running = false;
+      updateButton();
+      log("Paused");
+      break;
+
+    case "step":
+      step();
+      log("Stepped 1 generation");
+      break;
+
+    case "speed":
+      if (args[1]) {
+        document.getElementById("speed").value = args[1];
+        log("Speed = " + args[1]);
+      }
+      break;
+
+    case "brush":
+      if (args[1]) {
+        document.getElementById("brushSize").value = args[1];
+        log("Brush = " + args[1]);
+      }
+      break;
+
+    case "rule":
+      if (args[1]) {
+        applyRuleString(args[1]);
+      }
+      break;
+
+    case "load":
+      if (args[1]) {
+        loadPatternFromFile(args[1]);
+      }
+      break;
+
+    case "stats":
+      log(`Gen: ${generation} | Cells: ${grid.size}`);
+      break;
+
+    case "help":
+      log("Commands:");
+      log("play, pause, step");
+      log("speed X, brush X");
+      log("rule B3/S23");
+      log("load filename.rle");
+      log("stats, clear");
+      break;
+
+    default:
+      log("Unknown command");
+  }
+}
+  
 </script>
 
 </body>
