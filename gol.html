@@ -322,6 +322,8 @@ let fps = 0;
 let frameCount = 0;
 let lastFpsTime = performance.now();
 
+let drawCellCount = 0;
+
 // Patterns
 const patterns = {};
 
@@ -1516,6 +1518,7 @@ canvas.addEventListener("mousedown",e=>{
     panning=true;
   } else {
     drawing=true;
+    drawCellCount = 0;
 
     // SAVE STATE BEFORE MODIFYING GRID
     undoStack.push(createSnapshot());
@@ -1559,9 +1562,15 @@ canvas.addEventListener("mousemove",e=>{
   }
 });
 
-canvas.addEventListener("mouseup",()=>{
-  drawing=false;
-  panning=false;
+canvas.addEventListener("mouseup", () => {
+
+  if (drawing && drawCellCount > 0) {
+    const brush = document.getElementById("brushSize").value;
+    log(`Drawn ${drawCellCount} cells, size ${brush}`, "action");
+  }
+
+  drawing = false;
+  panning = false;
   lastDrawnCell=null;
   lastDrawCoords=null;
   orthoAxis = null;
@@ -1573,19 +1582,19 @@ canvas.addEventListener("contextmenu",e=>e.preventDefault());
 function paintCell(x, y, mode, brush, erase) {
 
   if (!erase && mode === "draw") {
-  log(`Draw at (${x}, ${y}) size ${brush}`, "action");
+  
 }
 
 if (erase) {
-  log(`Erase at (${x}, ${y}) size ${brush}`, "action");
+  
 }
 
 if (mode !== "draw" && mode !== "chaos") {
-  log(`Placed pattern: ${mode}`, "action");
+  
 }
 
 if (mode === "chaos") {
-  log(`Chaos brush used (density ${document.getElementById("chaosDensity").value})`, "action");
+  
 }
   
   // 1. Add this Chaos logic first
@@ -1595,7 +1604,10 @@ if (mode === "chaos") {
     for (let dy = -brush + 1; dy < brush; dy++) {
       if (Math.random() < density) { 
         let ck = key(x + dx, y + dy);
-        grid.add(ck);
+        if (!grid.has(ck)) {
+  drawCellCount++;
+}
+grid.add(ck);
         if (!cellAges.has(ck)) cellAges.set(ck, 0);
       }
     }
@@ -1615,7 +1627,10 @@ if (mode === "chaos") {
 
   for (let [dx, dy] of rotated) {
     let ck = key(x + dx - centerX, y + dy - centerY);
-    grid.add(ck);
+    if (!grid.has(ck)) {
+  drawCellCount++;
+}
+grid.add(ck);
     if (!cellAges.has(ck)) cellAges.set(ck, 0);
   }
   return;
@@ -1628,9 +1643,12 @@ if (mode === "chaos") {
       if (erase) {
         grid.delete(cell);
         cellAges.delete(cell);
-      } else {
-        grid.add(cell);
-        if (!cellAges.has(cell)) cellAges.set(cell, 0);
+      } else {if (!grid.has(cell)) {
+  drawCellCount++; // ✅ count only new cells
+}
+
+grid.add(cell);
+if (!cellAges.has(cell)) cellAges.set(cell, 0);
       }
     }
   }
