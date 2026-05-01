@@ -407,8 +407,6 @@ function loadPatternFromFile(file) {
 const key = (x,y)=>`${x},${y}`;
 const parse = k=>k.split(',').map(Number);
 
-let lastLogTime = 0; // <-- put this ABOVE the function (once)
-
 function log(msg, type = "info") {
   const term = document.getElementById("terminal");
   if (!term) return;
@@ -1227,13 +1225,26 @@ async function importRLE(){
     let patternName = "imported_" + Date.now();
     patterns[patternName] = cells;
 
+    // Immediately place imported pattern at center
+const centerX = Math.floor((-offsetX + canvas.width / 2) / cellSize);
+const centerY = Math.floor((-offsetY + canvas.height / 2) / cellSize);
+
+for (let [dx, dy] of cells) {
+  const k = key(centerX + dx, centerY + dy);
+  grid.add(k);
+  cellAges.set(k, 0);
+}
+
+log(`Imported + placed pattern (${cells.length} cells)`, "action");
+
     let select = document.getElementById("patternSelect");
     let option = document.createElement("option");
     option.value = patternName;
     option.textContent = "Imported";
     option.title = cells.length + " cells";
     select.appendChild(option);
-    select.value = patternName;
+select.value = patternName;
+select.dispatchEvent(new Event("change"));
 
     document.getElementById("rleInput").value = "";
     alert("Pattern imported! (" + cells.length + " cells)");
@@ -1592,8 +1603,13 @@ if (mode === "chaos") {
   return;
 }
 
+  if (mode !== "draw" && mode !== "chaos" && !patterns[mode]) {
+  log("Invalid pattern: " + mode, "error");
+  return;
+}
+
   // 2. This is your existing "Pattern" logic (keep this)
-  if (mode !== "draw") {
+  if (mode !== "draw" && mode !== "chaos" && patterns[mode]) {
   let rotated = rotatePattern(patterns[mode], patternRotation);
   let {centerX, centerY} = getPatternAnchor(rotated);
 
@@ -1660,7 +1676,7 @@ function place(e){
     let ty = lineStart[1] + Math.round(dy * i / steps);
     let k = key(tx,ty);
 
-    if(k === lastDrawnCell && i !== steps) continue;
+  if(k === lastDrawnCell) continue;
     lastDrawnCell = k;
 
     paintCell(tx, ty, mode, brush, erase);
