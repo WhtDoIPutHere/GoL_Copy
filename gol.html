@@ -323,6 +323,7 @@ let frameCount = 0;
 let lastFpsTime = performance.now();
 
 let drawCellCount = 0;
+let eraseCellCount = 0;
 
 // Patterns
 const patterns = {};
@@ -1519,6 +1520,7 @@ canvas.addEventListener("mousedown",e=>{
   } else {
     drawing=true;
     drawCellCount = 0;
+    eraseCellCount = 0;
 
     // SAVE STATE BEFORE MODIFYING GRID
     undoStack.push(createSnapshot());
@@ -1564,15 +1566,20 @@ canvas.addEventListener("mousemove",e=>{
 
 canvas.addEventListener("mouseup", () => {
 
+  const brush = document.getElementById("brushSize").value;
+
   if (drawing && drawCellCount > 0) {
-    const brush = document.getElementById("brushSize").value;
     log(`Drawn ${drawCellCount} cells, size ${brush}`, "action");
+  }
+
+  if (drawing && eraseCellCount > 0) {
+    log(`Erased ${eraseCellCount} cells, size ${brush}`, "action");
   }
 
   drawing = false;
   panning = false;
-  lastDrawnCell=null;
-  lastDrawCoords=null;
+  lastDrawnCell = null;
+  lastDrawCoords = null;
   orthoAxis = null;
 });
 
@@ -1640,10 +1647,15 @@ grid.add(ck);
   for (let dx = -brush + 1; dx < brush; dx++) {
     for (let dy = -brush + 1; dy < brush; dy++) {
       let cell = key(x + dx, y + dy);
+      
       if (erase) {
-        grid.delete(cell);
-        cellAges.delete(cell);
-      } else {if (!grid.has(cell)) {
+  if (grid.has(cell)) {
+    eraseCellCount++;
+  }
+  grid.delete(cell);
+  cellAges.delete(cell);
+}
+      else {if (!grid.has(cell)) {
   drawCellCount++; // ✅ count only new cells
 }
 
