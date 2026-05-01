@@ -264,6 +264,8 @@
 <canvas id="canvas"></canvas>
 <script src="patterns.js"></script>
 <script>
+
+  let lastLogTime = 0;
     
 function toggleUI() {
   const ui = document.getElementById("ui");
@@ -405,12 +407,29 @@ function loadPatternFromFile(file) {
 const key = (x,y)=>`${x},${y}`;
 const parse = k=>k.split(',').map(Number);
 
-function log(msg) {
+let lastLogTime = 0; // <-- put this ABOVE the function (once)
+
+function log(msg, type = "info") {
   const term = document.getElementById("terminal");
   if (!term) return;
 
+  // ✅ THROTTLE GOES RIGHT HERE
+  if (type === "action") {
+    const now = performance.now();
+    if (now - lastLogTime < 50) return;
+    lastLogTime = now;
+  }
+
   const time = new Date().toLocaleTimeString();
-  term.innerHTML += `[${time}] ${msg}<br>`;
+
+  let color = "#00ff88"; // default
+
+  if (type === "warn") color = "orange";
+  if (type === "error") color = "red";
+  if (type === "action") color = "#4cc9f0";
+  if (type === "system") color = "#aaa";
+
+  term.innerHTML += `<span style="color:${color}">[${time}] ${msg}</span><br>`;
   term.scrollTop = term.scrollHeight;
 
   console.log(msg);
@@ -799,6 +818,8 @@ function togglePlay(){
 
   running = !running;
   updateButton();
+
+  log(running ? "Simulation started" : "Simulation paused", "action");
 }
 
 function updateButton(){
@@ -826,6 +847,8 @@ function updateGridButton(){
 function toggleGrid(){
   showGrid = !showGrid;
   updateGridButton();
+
+  log("Grid " + (showGrid ? "ON" : "OFF"), "action");
 }
 
 function updateFullCellButton(){
@@ -842,6 +865,7 @@ function updateFullCellButton(){
 function toggleFullCell(){
   fullCellMode = !fullCellMode;
   updateFullCellButton();
+  log("Full Cell " + (fullCellMode ? "ON" : "OFF"), "action");
 }
 function updateHeatmapButton(){
   const btn = document.getElementById("heatmapBtn");
@@ -861,6 +885,8 @@ function toggleHeatmap(){
     updateColorButton();
   }
   updateHeatmapButton();
+
+  log("Heatmap " + (heatmapMode ? "ON" : "OFF"), "action");
 }
 
 function toggleGhost() {
@@ -873,6 +899,8 @@ function toggleGhost() {
     btn.textContent = "Ghost";
     btn.className = "paused";
   }
+
+  log("Ghost mode " + (ghostMode ? "ON" : "OFF"), "action");
 }
 
 function updateColorButton(){
@@ -893,6 +921,8 @@ function toggleColors(){
     updateHeatmapButton();
   }
   updateColorButton();
+
+  log("Colors " + (colorMode ? "ON" : "OFF"), "action");
 }
 
 function updateEraseButton(){
@@ -921,6 +951,8 @@ function toggleErase(){
   }
 
   updateEraseButton();
+
+  log("Erase mode " + (eraseMode ? "ON" : "OFF"), "action");
 }
 
 minimapCanvas.addEventListener("click", (e) => {
@@ -994,6 +1026,7 @@ document.getElementById("statSlope").textContent = "0";
 document.getElementById("statTrend").textContent = "-";
 document.getElementById("statStability").textContent = "-";
 
+  log("Grid cleared", "action");
 }
 
 function updateStats(){
@@ -1252,6 +1285,8 @@ function onRuleCheckboxChange(type, n, checked){
     else birthSet.delete(n);
   }
   updateRuleString();
+
+  log(`Rule updated → ${document.getElementById('ruleString').textContent}`, "action");
 }
 
 function updateRuleString(){
@@ -1318,6 +1353,8 @@ function toggleRules(){
     panel.style.display = 'none';
     btn.className = 'paused';
   }
+
+  log("Rules panel " + (rulesOpen ? "OPENED" : "CLOSED"), "action");
 }
 
 function restoreSnapshot(snapshot) {
@@ -1338,6 +1375,8 @@ function undo() {
 
   const prev = undoStack.pop();
   restoreSnapshot(prev);
+
+  log("Undo", "action");
 }
 
 function redo() {
@@ -1347,6 +1386,8 @@ function redo() {
 
   const next = redoStack.pop();
   restoreSnapshot(next);
+
+  log("Redo", "action");
 }
 
 // Keys
@@ -1372,7 +1413,7 @@ if (e.ctrlKey && e.key.toLowerCase() === "z") {
 
 if (e.key.toLowerCase() === "v") {
   patternRotation = (patternRotation + 90) % 360;
-  console.log("Rotation:", patternRotation);
+  log("Pattern rotated to " + patternRotation + "°", "action");
 }
 
 if (e.ctrlKey && e.key.toLowerCase() === "y") {
@@ -1519,6 +1560,23 @@ canvas.addEventListener("contextmenu",e=>e.preventDefault());
 
 // Place
 function paintCell(x, y, mode, brush, erase) {
+
+  if (!erase && mode === "draw") {
+  log(`Draw at (${x}, ${y}) size ${brush}`, "action");
+}
+
+if (erase) {
+  log(`Erase at (${x}, ${y}) size ${brush}`, "action");
+}
+
+if (mode !== "draw" && mode !== "chaos") {
+  log(`Placed pattern: ${mode}`, "action");
+}
+
+if (mode === "chaos") {
+  log(`Chaos brush used (density ${document.getElementById("chaosDensity").value})`, "action");
+}
+  
   // 1. Add this Chaos logic first
   if (mode === "chaos") {
   let density = parseInt(document.getElementById("chaosDensity").value) / 100;
