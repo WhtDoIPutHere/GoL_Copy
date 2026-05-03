@@ -113,7 +113,47 @@
     z-index: 999;
     width: 260px;
   }
-  
+
+  #clipboardMenu {
+    display: none;
+    position: fixed;
+    background: rgba(0,0,0,0.9);
+    padding: 10px;
+    border-radius: 8px;
+    z-index: 1001;
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid #555;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+    font-size: 12px;
+  }
+
+  #clipboardMenu > div:first-child {
+    color: lime;
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+
+  #clipboardMenu .clipboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    padding: 6px 8px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.03);
+    font-size: 12px;
+    transition: background 0.15s;
+  }
+
+  #clipboardMenu .clipboard-item:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: #555;
+  }
+
   /* Stats display styling */
   #stats { font-size: 12px; margin-top: 6px; }
   /* Stats panel layout */
@@ -241,6 +281,11 @@
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
         <div class="shortcut-item"><span>m</span> <span>Cycle Mirror (H / V / None)</span></div>
+        <div class="shortcut-item"><span>Ctrl + Drag</span> <span>Select Area</span></div>
+        <div class="shortcut-item"><span>Ctrl + C</span> <span>Copy Selected Area</span></div>
+        <div class="shortcut-item"><span>Ctrl + X</span> <span>Cut Selected Area</span></div>
+        <div class="shortcut-item"><span>Ctrl + V</span> <span>Paste Clipboard Item</span></div>
+        <div class="shortcut-item"><span>D</span> <span>Deselect Area</span></div>
         <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
         <div class="shortcut-item"><span>Ctrl + Z</span> <span>Undo</span></div>
         <div class="shortcut-item"><span>Ctrl + Y</span> <span>Redo</span></div>
@@ -258,6 +303,11 @@
       <option value="draw">Brush</option>
       <option value="chaos">Random</option>
     </select>
+    <div id="clipboardMenu">
+      <div>Clipboard</div>
+      <div id="clipboardItems" style="display:flex; flex-direction:column;"></div>
+      <div id="clipboardEmpty" style="color:#aaa; font-size:12px;">No copied items yet.</div>
+    </div>
 <div style="display:flex; align-items:center; gap:6px;">
   <textarea id="rleInput"
     style="width:150px; height:15px; resize:none;"
@@ -368,6 +418,11 @@ const MAX_HISTORY = 67; // Maximum undo/redo history size
 
 let patternRotation = 0; // Rotation angle for patterns (0, 90, 180, 270)
 let patternMirror = 0; // Mirror mode: 0 = none, 1 = horizontal, 2 = vertical
+let selectionActive = false; // Whether user is currently dragging a clipboard selection
+let selectionStart = null; // Selection start coordinates
+let selectionEnd = null; // Selection end coordinates
+let selectionRect = null; // Completed selection rectangle
+let clipboardHistory = []; // Last copied/cut shapes
 
 // Conway's Game of Life rules (B3/S23)
 let survivalSet = new Set([2,3]); // Neighbors needed to survive
@@ -540,6 +595,137 @@ function transformPattern(cells, angle, mirror) {
   return rotated;
 }
 
+function getSelectionBounds(){
+  if(!selectionStart || !selectionEnd) return null;
+  const x1 = Math.min(selectionStart[0], selectionEnd[0]);
+  const x2 = Math.max(selectionStart[0], selectionEnd[0]);
+  const y1 = Math.min(selectionStart[1], selectionEnd[1]);
+  const y2 = Math.max(selectionStart[1], selectionEnd[1]);
+  return { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+}
+
+function clearSelection(){
+  selectionStart = null;
+  selectionEnd = null;
+  selectionActive = false;
+  selectionRect = null;
+}
+
+function updateClipboardMenu(){
+  const menu = document.getElementById("clipboardMenu");
+  const items = document.getElementById("clipboardItems");
+  const empty = document.getElementById("clipboardEmpty");
+
+  items.innerHTML = "";
+
+  if(clipboardHistory.length === 0){
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  clipboardHistory.forEach((entry, index) => {
+    const item = document.createElement("div");
+    item.className = "clipboard-item";
+    item.innerHTML = `<span>${entry.name}</span><span>${entry.width}×${entry.height}</span>`;
+    item.onclick = () => selectClipboardEntry(entry.id);
+    items.appendChild(item);
+  });
+}
+
+function openClipboardMenu(){
+  updateClipboardMenu();
+  const menu = document.getElementById("clipboardMenu");
+  menu.style.display = clipboardHistory.length ? "block" : "none";
+
+  if(clipboardHistory.length){
+    menu.style.left = mouseX + "px";
+    menu.style.top = mouseY + "px";
+  } else {
+    log("Clipboard empty. Use Ctrl+Drag + Ctrl+C or Ctrl+X to copy.", "action");
+  }
+}
+
+function closeClipboardMenu(){
+  const menu = document.getElementById("clipboardMenu");
+  menu.style.display = "none";
+}
+
+function selectClipboardEntry(id){
+  const entry = clipboardHistory.find(e => e.id === id);
+  if(!entry) return;
+
+  const select = document.getElementById("patternSelect");
+  if(!Array.from(select.options).some(o => o.value === id)){
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = entry.name;
+    select.appendChild(opt);
+  }
+
+  select.value = id;
+  select.dispatchEvent(new Event("change"));
+  log(`Selected clipboard item: ${entry.name}`, "action");
+  closeClipboardMenu();
+}
+
+function addClipboardEntry(cells, width, height){
+  const id = `clipboard-${Date.now()}-${clipboardHistory.length}`;
+  const name = `${clipboardHistory.length + 1}`;
+
+  clipboardHistory.unshift({ id, name, cells, width, height });
+  if(clipboardHistory.length > 20) clipboardHistory.pop();
+  patterns[id] = cells;
+
+  return id;
+}
+
+function getCellsInSelection(){
+  const bounds = selectionRect;
+  if(!bounds) return null;
+
+  const cells = [];
+  for(const keyStr of grid){
+    const [x, y] = parse(keyStr);
+    if(x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2){
+      cells.push([x - bounds.x1, y - bounds.y1]);
+    }
+  }
+
+  return cells;
+}
+
+function copySelection(cut = false){
+  if(!selectionRect){
+    log("No selection to copy.", "warn");
+    return;
+  }
+
+  const cells = getCellsInSelection();
+  if(!cells || cells.length === 0){
+    log("Selected area contains no live cells.", "warn");
+    return;
+  }
+
+  const id = addClipboardEntry(cells, selectionRect.width, selectionRect.height);
+  log(`${cut ? "Cut" : "Copied"} ${cells.length} cells to clipboard: ${id}`, "action");
+
+  if(cut){
+    undoStack.push(createSnapshot());
+    if(undoStack.length > MAX_HISTORY) undoStack.shift();
+
+    for(const [dx, dy] of cells){
+      const cell = key(selectionRect.x1 + dx, selectionRect.y1 + dy);
+      grid.delete(cell);
+      cellAges.delete(cell);
+    }
+
+    selectionRect = null;
+    closeClipboardMenu();
+  }
+}
+
 // Main drawing function - renders the grid, cells, and UI elements
 function draw(){
     if (ghostMode && running) {
@@ -595,6 +781,21 @@ function draw(){
     ctx.stroke();
   } else if(showGrid && cellSize < minGridCellSize) {
     // keep the helper state on, but do not draw the visual grid at extreme zoom levels
+  }
+
+  const activeSelection = selectionActive ? getSelectionBounds() : selectionRect;
+  if(activeSelection){
+    const sx = activeSelection.x1 * cellSize + offsetX;
+    const sy = activeSelection.y1 * cellSize + offsetY;
+    const sw = activeSelection.width * cellSize;
+    const sh = activeSelection.height * cellSize;
+
+    ctx.save();
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(sx, sy, sw, sh);
+    ctx.restore();
   }
 
 // Brush preview
@@ -1445,6 +1646,24 @@ if (e.ctrlKey && e.key.toLowerCase() === "z") {
   return;
 }
 
+if (e.ctrlKey && e.key.toLowerCase() === "c") {
+  e.preventDefault();
+  copySelection(false);
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "x") {
+  e.preventDefault();
+  copySelection(true);
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "v") {
+  e.preventDefault();
+  openClipboardMenu();
+  return;
+}
+
 if (e.key.toLowerCase() === "v") {
   patternRotation = (patternRotation + 90) % 360;
   log("Pattern rotated to " + patternRotation + "°", "action");
@@ -1463,6 +1682,13 @@ if (e.key.toLowerCase() === "m") {
   }
 
   log(label, "action");
+}
+
+if (e.key.toLowerCase() === "d") {
+  e.preventDefault();
+  clearSelection();
+  log("Selection cleared", "action");
+  return;
 }
 
 if (e.ctrlKey && e.key.toLowerCase() === "y") {
@@ -1548,39 +1774,64 @@ if (e.ctrlKey && e.key.toLowerCase() === "y") {
 
 });
 
+document.addEventListener("click", e => {
+  const menu = document.getElementById("clipboardMenu");
+  if (!menu) return;
+  if (menu.style.display !== "block") return;
+  if (!menu.contains(e.target)) {
+    menu.style.display = "none";
+  }
+});
+
 // Mouse
 canvas.addEventListener("mousedown",e=>{
   if(e.button === 2){
     panning=true;
-  } else {
-    drawing=true;
-    drawCellCount = 0;
-    eraseCellCount = 0;
-
-    // SAVE STATE BEFORE MODIFYING GRID
-    undoStack.push(createSnapshot());
-
-    if (undoStack.length > MAX_HISTORY) {
-      undoStack.shift();
-    }
-
-    // Clear redo stack on new action
-    redoStack = [];
-
-    running=false;
-    updateButton();
-
-    lastDrawnCell=null;
-    lastDrawCoords=null;
-    orthoAxis = null;
-
-    place(e);
+    return;
   }
+
+  if(e.ctrlKey){
+    e.preventDefault();
+    selectionActive = true;
+    selectionStart = [Math.floor((e.clientX-offsetX)/cellSize), Math.floor((e.clientY-offsetY)/cellSize)];
+    selectionEnd = [...selectionStart];
+    selectionRect = null;
+    closeClipboardMenu();
+    return;
+  }
+
+  drawing=true;
+  drawCellCount = 0;
+  eraseCellCount = 0;
+
+  // SAVE STATE BEFORE MODIFYING GRID
+  undoStack.push(createSnapshot());
+
+  if (undoStack.length > MAX_HISTORY) {
+    undoStack.shift();
+  }
+
+  // Clear redo stack on new action
+  redoStack = [];
+
+  running=false;
+  updateButton();
+
+  lastDrawnCell=null;
+  lastDrawCoords=null;
+  orthoAxis = null;
+
+  place(e);
 });
 
 canvas.addEventListener("mousemove",e=>{
   mouseX = e.clientX;
   mouseY = e.clientY;
+
+  if(selectionActive){
+    selectionEnd = [Math.floor((e.clientX-offsetX)/cellSize), Math.floor((e.clientY-offsetY)/cellSize)];
+    return;
+  }
 
   if(drawing) place(e);
 
@@ -1600,6 +1851,16 @@ canvas.addEventListener("mousemove",e=>{
 });
 
 canvas.addEventListener("mouseup", () => {
+  if(selectionActive){
+    selectionActive = false;
+    selectionRect = getSelectionBounds();
+    if(selectionRect && selectionRect.width > 0 && selectionRect.height > 0){
+      log(`Selected area ${selectionRect.width}×${selectionRect.height}`, "action");
+    } else {
+      clearSelection();
+    }
+    return;
+  }
 
   const brush = document.getElementById("brushSize").value;
 
