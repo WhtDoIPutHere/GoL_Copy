@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Game of Life Pattern Library</title>
 <style>
+  /* Basic page styling */
   body {
     margin: 0;
     font-family: sans-serif;
@@ -11,6 +12,7 @@
     color: #eee;
   }
 
+  /* Header section styling */
   header {
     padding: 15px;
     background: #1a1a1a;
@@ -19,21 +21,27 @@
     align-items: center;
   }
 
+  /* Search input styling */
   input {
     padding: 8px;
     width: 320px;
   }
 
+  /* Main content container */
   .container {
     padding: 20px;
+    max-width: 2000px;
+    margin: 0 auto;
   }
 
+  /* Table layout and borders */
   table {
     width: 100%;
     border-collapse: collapse;
-    border-spacing: 0;
+    table-layout: fixed; /* Prevents column jumping */
   }
 
+  /* Table header styling with sticky positioning */
   th {
     background: #222;
     cursor: pointer;
@@ -42,31 +50,99 @@
     z-index: 5;
   }
 
-  tr:nth-child(even) {
-    background: #151515;
-  }
-
-  tr:nth-child(odd) {
-    background: #111;
-  }
-
-  tr:hover {
-    background: #222;
-  }
-
-  td, th {
+  /* Cell padding and borders */
+  th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
     border-right: 1px solid #2a2a2a;
+    text-align: left;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  td:last-child, th:last-child {
+  /* Remove right border from last column */
+  th:last-child, td:last-child {
     border-right: none;
   }
 
+  /* Alternating row colors for readability */
+  tbody tr:nth-child(odd) {
+    background: #151515;
+  }
+
+  tbody tr:nth-child(even) {
+    background: #101010;
+  }
+
+  /* Hover effect for table rows */
+  tbody tr:hover {
+    background: #222;
+  }
+
+  /* Prevent text wrapping for non-description cells */
+  td:not(.desc) {
+    white-space: nowrap;
+  }
+
+  /* Line height for table cells */
+  td {
+    line-height: 1.3;
+  }
+
+  /* Fixed width for favorite star column */
+  th:nth-child(1), td:nth-child(1) { width: 40px; text-align: center; }
+
+  /* Fixed width for name column */
+  th:nth-child(2), td:nth-child(2) { width: 80px; }
+
+  /* Flexible width for description column */
+  th:nth-child(3), td:nth-child(3) { width: auto; }
+
+  /* Fixed width for rule column */
+  th:nth-child(4), td:nth-child(4) { width: 100px; }
+
+  /* Fixed width for cells column */
+  th:nth-child(5), td:nth-child(5) { width: 80px; text-align: left;}
+
+  /* Fixed width for bounding box column */
+  th:nth-child(6), td:nth-child(6) { width: 120px; }
+
+  /* Small text styling */
   .small {
     font-size: 12px;
     color: #aaa;
   }
 
+  /* Description cell with ellipsis and tooltip */
+  .desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: help;
+    min-height: 1.4em;
+  }
+
+  /* Rule text styling */
+  .rule {
+    color: #8ecae6;
+    font-family: monospace;
+  }
+
+  /* Bounding box text styling */
+  .bbox {
+    color: #90be6d;
+    font-family: monospace;
+  }
+
+  /* Numeric cell alignment */
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Pagination container styling */
   .pagination {
     padding: 10px;
     display: flex;
@@ -74,6 +150,7 @@
     justify-content: center;
   }
 
+  /* General button styling */
   button {
     background: #222;
     color: white;
@@ -82,128 +159,17 @@
     cursor: pointer;
   }
 
+  /* Button hover effect */
   button:hover {
     background: #333;
   }
 
-  .active {
-    background: #444;
+  /* Active tab button styling */
+  #tab-all.active,
+  #tab-recent.active,
+  #tab-favorites.active {
+    background: #555;
   }
-
-  /* === TABLE LAYOUT FIXES === */
-
-.container {
-  padding: 20px;
-  max-width: 2000px;
-  margin: 0 auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed; /* IMPORTANT: prevents column jumping */
-}
-
-/* ⭐ column */
-th:nth-child(1), td:nth-child(1) { width: 40px; text-align: center; }
-
-/* Name */
-th:nth-child(2), td:nth-child(2) { width: 80px; }
-
-/* Description stays flexible */
-th:nth-child(3), td:nth-child(3) { width: auto; }
-
-/* Rule */
-th:nth-child(4), td:nth-child(4) { width: 100px; }
-
-/* Cells */
-th:nth-child(5), td:nth-child(5) { width: 80px; text-align: left;}
-
-/* Bounding Box */
-th:nth-child(6), td:nth-child(6) { width: 120px; }
-
-/* DESCRIPTION TAKES REMAINING SPACE */
-th:nth-child(2), td:nth-child(2) { width: auto; }
-
-th, td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #333;
-  border-right: 1px solid #2a2a2a;
-  text-align: left;
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-  /* keep single-line behavior for non-description */
-td:not(.desc) {
-  white-space: nowrap;
-}
-
-th:last-child, td:last-child {
-  border-right: none;
-}
-
-/* alternating row colors */
-tbody tr:nth-child(odd) {
-  background: #151515;
-}
-
-tbody tr:nth-child(even) {
-  background: #101010;
-}
-
-/* nicer hover */
-tbody tr:hover {
-  background: #222;
-}
-
-/* DESCRIPTION CLAMP */
-.desc {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: help;
-  min-height: 1.4em;
-}
-
-.rule {
-  color: #8ecae6;
-  font-family: monospace;
-}
-
-.bbox {
-  color: #90be6d;
-  font-family: monospace;
-}
-
-.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-td {
-  line-height: 1.3;
-}
-
-button {
-  background: #222;
-  color: white;
-  border: 1px solid #333;
-  padding: 5px 10px;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #333;
-}
-
-#tab-all.active,
-#tab-recent.active,
-#tab-favorites.active {
-  background: #555;
-}
 
 </style>
 </head>

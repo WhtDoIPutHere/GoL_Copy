@@ -4,101 +4,162 @@
   <title>Game of Life - Natan</title>
   
   <style>
+  /* Page background and font settings */
+  body { margin: 0; background: #111; color: white; font-family: sans-serif; }
+  
+  /* UI panel hide/show animation */
   #ui.hidden {
-  transform: translateX(-101%); /* Slides it just out of view */
-    }
-    #ui {
-     transition: transform 0.3s ease; /* Makes it slide smoothly */
-    }
-    
-.shortcut-dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.shortcut-content {
-  display: none;
-  position: absolute;
-  background-color: rgba(0, 0, 0, 0.9);
-  min-width: 200px;
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
-  z-index: 1000;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #555;
-  top: 100%; /* Makes it open downward from the button */
-  left: 0;   /* Aligns it to the left edge of the button */
-}
-
-.shortcut-dropdown:hover .shortcut-content {
-  display: block;
-}
-
-.shortcut-item {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  margin-bottom: 5px;
-  border-bottom: 1px solid #333;
-  padding-bottom: 2px;
-}
-
-.shortcut-item span:first-child {
-  color: lime;
-  font-weight: bold;
-}
-
-    body { margin: 0; background: #111; color: white; font-family: sans-serif; }
-    #ui {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      padding: 10px;
-      border-radius: 10px;
-    }
-    #ui .row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
-    canvas { display: block; }
-    button, input, select { margin: 5px; }
-
-    #playBtn.paused { background: #aa3333; }
-    #playBtn.running { background: #33aa33; }
-    #gridBtn.paused { background: #aa3333; }
-    #gridBtn.running { background: #33aa33; }
-    #eraseBtn.paused { background: #aa3333; }
-    #eraseBtn.running { background: #33aa33; }
-    #fullCellBtn.paused { background: #aa3333; }
-    #fullCellBtn.running { background: #33aa33; }
-    #heatmapBtn.paused { background: #aa3333; }
-    #heatmapBtn.running { background: #33aa33; }
-    #colorsBtn.paused { background: #aa3333; }
-    #colorsBtn.running { background: #33aa33; }
-    #rulesBtn.paused { background: #aa3333; }
-    #rulesBtn.running { background: #33aa33; }
-    #ghostBtn.paused { background: #aa3333; }
-    #ghostBtn.running { background: #33aa33; }
-
-    /* small styles for rule checkboxes */
-    .rule-checkbox { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #444; border-radius:4px; background:#161616; color:#ddd; font-size:12px; cursor:pointer; position:relative; }
-    .rule-checkbox input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
-    .rule-checkbox .rule-num { pointer-events:none; }
-    .rule-checkbox .rule-check { position:absolute; font-size:14px; color:lime; pointer-events:none; opacity:0; }
-    .rule-checkbox input:checked + .rule-num { display:none; }
-    .rule-checkbox input:checked + .rule-num + .rule-check { opacity:1; }
-    
-    #rulesPanel {
-      display: none;
-      position: absolute;
-      top: 100%;       /* Aligns top of rules to bottom of UI */
-      left: 0;         /* Aligns with left edge of UI */
-      margin-top: 10px; /* Gap matches the 10px screen edge distance */
-      background: rgba(0,0,0,0.85);
-      padding: 10px;
-      border-radius: 8px;
-      z-index: 999;
-      width: 260px;
-    }
-
+    transform: translateX(-101%);
+  }
+  /* UI panel positioning and appearance */
+  #ui {
+    transition: transform 0.3s ease;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.7);
+    padding: 10px;
+    border-radius: 10px;
+  }
+  /* UI row layout */
+  #ui .row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  
+  /* Canvas display settings */
+  canvas { display: block; }
+  
+  /* Button and input margins */
+  button, input, select { margin: 5px; }
+  /* Play button color states */
+  #playBtn.paused { background: #aa3333; }
+  #playBtn.running { background: #33aa33; }
+  /* Grid button color states */
+  #gridBtn.paused { background: #aa3333; }
+  #gridBtn.running { background: #33aa33; }
+  /* Erase button color states */
+  #eraseBtn.paused { background: #aa3333; }
+  #eraseBtn.running { background: #33aa33; }
+  /* Full cell button color states */
+  #fullCellBtn.paused { background: #aa3333; }
+  #fullCellBtn.running { background: #33aa33; }
+  /* Heatmap button color states */
+  #heatmapBtn.paused { background: #aa3333; }
+  #heatmapBtn.running { background: #33aa33; }
+  /* Colors button color states */
+  #colorsBtn.paused { background: #aa3333; }
+  #colorsBtn.running { background: #33aa33; }
+  /* Rules button color states */
+  #rulesBtn.paused { background: #aa3333; }
+  #rulesBtn.running { background: #33aa33; }
+  /* Ghost button color states */
+  #ghostBtn.paused { background: #aa3333; }
+  #ghostBtn.running { background: #33aa33; }
+  
+  /* Shortcut dropdown container */
+  .shortcut-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  /* Shortcut dropdown content */
+  .shortcut-content {
+    display: none;
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.9);
+    min-width: 200px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+    z-index: 1000;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    top: 100%;
+    left: 0;
+  }
+  /* Show dropdown on hover */
+  .shortcut-dropdown:hover .shortcut-content {
+    display: block;
+  }
+  /* Individual shortcut item layout */
+  .shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 2px;
+  }
+  /* Key styling in shortcuts */
+  .shortcut-item span:first-child {
+    color: lime;
+    font-weight: bold;
+  }
+  
+  /* Custom rule checkbox appearance */
+  .rule-checkbox { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #444; border-radius:4px; background:#161616; color:#ddd; font-size:12px; cursor:pointer; position:relative; }
+  .rule-checkbox input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+  .rule-checkbox .rule-num { pointer-events:none; }
+  .rule-checkbox .rule-check { position:absolute; font-size:14px; color:lime; pointer-events:none; opacity:0; }
+  .rule-checkbox input:checked + .rule-num { display:none; }
+  .rule-checkbox input:checked + .rule-num + .rule-check { opacity:1; }
+  
+  /* Rules panel popup */
+  #rulesPanel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 10px;
+    background: rgba(0,0,0,0.85);
+    padding: 10px;
+    border-radius: 8px;
+    z-index: 999;
+    width: 260px;
+  }
+  
+  /* Stats display styling */
+  #stats { font-size: 12px; margin-top: 6px; }
+  /* Stats panel layout */
+  #statsPanel, #statsPanel2 {
+    display:flex;
+    flex-direction:column;
+    font-size:12px;
+    gap:4px;
+    padding:6px;
+    border:1px solid #555;
+    background:rgba(0,0,0,0.4);
+    border-radius:0px;
+    min-width:160px;
+  }
+  
+  /* Terminal output window */
+  #terminal {
+    position: fixed;
+    bottom: 37px;
+    right: 10px;
+    width: 420px;
+    height: 133px;
+    background: rgba(0,0,0,0.85);
+    color: #00ff88;
+    font-family: monospace;
+    font-size: 11px;
+    padding: 8px;
+    overflow-y: auto;
+    border: 1px solid #333;
+    z-index: 9999;
+  }
+  /* Terminal input field */
+  #terminalInput {
+    position: fixed;
+    bottom: 5px;
+    right: 5px;
+    width: 428px;
+    height: 24px;
+    background: black;
+    color: #00ff88;
+    border: 1px solid #333;
+    font-family: monospace;
+    font-size: 11px;
+    padding-left: 6px;
+    z-index: 10000;
+  }
   </style>
 </head>
 <body>
@@ -265,170 +326,93 @@
 <script src="patterns.js"></script>
 <script>
 
-  let lastLogTime = 0;
-    
+// Global variables for logging, canvas setup, and game state
+let lastLogTime = 0; // Timestamp for action logging rate limiting
+const canvas = document.getElementById("canvas"); // Main canvas element
+const ctx = canvas.getContext("2d"); // 2D rendering context
+
+// Set canvas size to full window
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let cellSize = 20; // Size of each cell in pixels
+let offsetX = 0; // Horizontal pan offset
+let offsetY = 0; // Vertical pan offset
+
+let running = false; // Whether simulation is running
+let grid = new Set(); // Set of living cell coordinates as strings "x,y"
+let generation = 0; // Current generation number
+
+let drawing = false; // Whether user is currently drawing
+let panning = false; // Whether user is panning the view
+let lastDrawnCell = null; // Last cell that was drawn to prevent duplicates
+let lastDrawCoords = null; // Last mouse coordinates for drawing
+
+let eraseMode = false; // Whether drawing erases cells instead of adding
+let previousPattern = "draw"; // Previously selected pattern
+let showGrid = false; // Whether to show grid lines
+let fullCellMode = false; // Whether cells fill completely or show borders
+let orthoAxis = null; // Axis for orthogonal drawing ("x" or "y")
+let colorMode = false; // Whether to color cells by age
+let heatmapMode = false; // Whether to show population heatmap
+let ghostMode = false; // Whether to show pattern ghost preview
+let populationHistory = []; // History of population counts for graphs
+let cellAges = new Map(); // Map of cell coordinates to their age
+let mouseX = 0; // Current mouse X position
+let mouseY = 0; // Current mouse Y position
+let patternGhostPreview = true; // Whether to show pattern preview on hover
+let undoStack = []; // Stack for undo snapshots
+let redoStack = []; // Stack for redo snapshots
+const MAX_HISTORY = 67; // Maximum undo/redo history size
+
+let patternRotation = 0; // Rotation angle for patterns (0, 90, 180, 270)
+
+// Conway's Game of Life rules (B3/S23)
+let survivalSet = new Set([2,3]); // Neighbors needed to survive
+let birthSet = new Set([3]); // Neighbors needed to be born
+
+let fps = 0; // Current frames per second
+let frameCount = 0; // Frame counter for FPS calculation
+let lastFpsTime = performance.now(); // Last FPS update time
+
+let drawCellCount = 0; // Cells drawn in current session
+let eraseCellCount = 0; // Cells erased in current session
+
+// Object to store loaded patterns
+const patterns = {};
+
+// Toggle UI panel visibility
 function toggleUI() {
   const ui = document.getElementById("ui");
   ui.classList.toggle("hidden");
   
-  // Change the icon/text based on state
   const btn = document.getElementById("collapseBtn");
   btn.textContent = ui.classList.contains("hidden") ? "❯" : "☰";
 }
 
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+// Utility functions for coordinate handling
+const key = (x,y)=>`${x},${y}`; // Convert coordinates to string key
+const parse = k=>k.split(',').map(Number); // Parse string key back to coordinates
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-let cellSize = 20;
-let offsetX = 0;
-let offsetY = 0;
-
-let running = false;
-let grid = new Set();
-let generation = 0;
-
-let drawing = false;
-let panning = false;
-let lastDrawnCell = null;
-let lastDrawCoords = null;
-
-let eraseMode = false;
-let previousPattern = "draw";
-let showGrid = false;
-let fullCellMode = false;
-let orthoAxis = null; // null = undecided, 'x' or 'y'
-let colorMode = false;
-let heatmapMode = false;
-let ghostMode = false;
-let populationHistory = [];
-let cellAges = new Map();
-let mouseX = 0;
-let mouseY = 0;
-let patternGhostPreview = true;
-let undoStack = [];
-let redoStack = [];
-const MAX_HISTORY = 67; // limit memory
-
-let patternRotation = 0; // 0, 90, 180, 270
-
-// Rule sets (default Conway B3/S23)
-let survivalSet = new Set([2,3]);
-let birthSet = new Set([3]);
-
-let fps = 0;
-let frameCount = 0;
-let lastFpsTime = performance.now();
-
-let drawCellCount = 0;
-let eraseCellCount = 0;
-
-// Patterns
-const patterns = {};
-
-function fitViewToPattern(cells, padding = 0.2) {
-  if (!cells || cells.length === 0) return;
-
-  let minX = Infinity, minY = Infinity;
-  let maxX = -Infinity, maxY = -Infinity;
-
-  for (let [x, y] of cells) {
-    if (x < minX) minX = x;
-    if (y < minY) minY = y;
-    if (x > maxX) maxX = x;
-    if (y > maxY) maxY = y;
-  }
-
-  const patternWidth = maxX - minX + 1;
-  const patternHeight = maxY - minY + 1;
-
-  const canvasW = canvas.width;
-  const canvasH = canvas.height;
-
-  // Add padding around pattern
-  const scaleX = canvasW / (patternWidth * (1 + padding));
-  const scaleY = canvasH / (patternHeight * (1 + padding));
-
-  cellSize = Math.max(2, Math.min(scaleX, scaleY)); // avoid insane zoom
-
-  // Center pattern
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-
-  offsetX = canvasW / 2 - centerX * cellSize;
-  offsetY = canvasH / 2 - centerY * cellSize;
-}
-
-async function loadPatternFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  const file = params.get("file");
-
-  if (!file) return;
-
-  try {
-    log(`Loading file: ${file}`);
-
-    const url = `patterns/${file}`;
-    log(`Fetching: ${url}`);
-
-    const rleText = await fetch(url).then(r => {
-      log("Fetch complete");
-      return r.text();
-    });
-
-    log(`RLE size: ${rleText.length}`);
-
-    let cells = parseRLE(rleText);
-
-    log(`Parsed cells: ${cells.length}`);
-
-    grid.clear();
-    cellAges.clear();
-
-    for (let [x, y] of cells) {
-      const k = key(x, y);
-      grid.add(k);
-      cellAges.set(k, 0);
-    }
-
-    fitViewToPattern(cells, 0.3);
-
-    log("Pattern loaded + fitted");
-
-  } catch (e) {
-    log("ERROR: " + e.message);
-    console.error(e);
-  }
-}
-
-function loadPatternFromFile(file) {
-  window.location.search = "?file=" + encodeURIComponent(file);
-}
-
-const key = (x,y)=>`${x},${y}`;
-const parse = k=>k.split(',').map(Number);
-
+// Log messages to the terminal with timestamps and colors
 function log(msg, type = "info") {
   const term = document.getElementById("terminal");
   if (!term) return;
 
-  // ✅ THROTTLE GOES RIGHT HERE
   if (type === "action") {
     const now = performance.now();
-    if (now - lastLogTime < 50) return;
+    if (now - lastLogTime < 50) return; // Rate limit action logs
     lastLogTime = now;
   }
 
   const time = new Date().toLocaleTimeString();
 
-  let color = "#00ff88"; // default
+  let color = "#00ff88"; // Default green
 
   if (type === "warn") color = "orange";
   if (type === "error") color = "red";
-  if (type === "action") color = "#4cc9f0";
-  if (type === "system") color = "#aaa";
+  if (type === "action") color = "#4cc9f0"; // Blue for actions
+  if (type === "system") color = "#aaa"; // Gray for system
 
   term.innerHTML += `<span style="color:${color}">[${time}] ${msg}</span><br>`;
   term.scrollTop = term.scrollHeight;
@@ -436,6 +420,7 @@ function log(msg, type = "info") {
   console.log(msg);
 }
 
+// Create a snapshot of the current game state for undo/redo
 function createSnapshot() {
   return {
     grid: new Set(grid),
@@ -445,6 +430,19 @@ function createSnapshot() {
   };
 }
 
+// Restore the game state from a snapshot
+function restoreSnapshot(snapshot) {
+  grid = new Set(snapshot.grid);
+  cellAges = new Map(snapshot.cellAges);
+  generation = snapshot.generation;
+  populationHistory = [...snapshot.populationHistory];
+
+  running = false;
+  updateButton();
+  updateStats();
+}
+
+// Calculate the bounding box of a pattern
 function getPatternBounds(pattern){
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for(let [dx,dy] of pattern){
@@ -456,6 +454,7 @@ function getPatternBounds(pattern){
   return {minX, minY, maxX, maxY};
 }
 
+// Get the bounds and center point of a pattern
 function getPatternAnchor(pattern){
   let bounds = getPatternBounds(pattern);
   let centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
@@ -463,6 +462,7 @@ function getPatternAnchor(pattern){
   return {bounds, centerX, centerY};
 }
 
+// Get the color for a cell based on its age and display mode
 function getAgeColor(age){
   const baseColors = [
     'rgb(157,220,21)',  // young
@@ -489,6 +489,7 @@ function getAgeColor(age){
   return "lime";
 }
 
+// Rotate a pattern by 90-degree increments
 function rotatePattern(cells, angle) {
   // angle must be 0, 90, 180, 270
   const radians = (angle * Math.PI) / 180;
@@ -519,7 +520,7 @@ function rotatePattern(cells, angle) {
   });
 }
 
-// Draw
+// Main drawing function - renders the grid, cells, and UI elements
 function draw(){
     if (ghostMode && running) {
     // Faintly "overpaint" the previous frame to create trails
@@ -734,6 +735,7 @@ function getNeighbors(x,y){
   return n;
 }
 
+// Advance the simulation by one generation using the current rules
 function step(){
   let newGrid=new Set();
   let check=new Set();
@@ -1764,15 +1766,13 @@ window.addEventListener("load", () => {
   loadPatternFromURL();
 });
 
-// ==========================
-// TERMINAL COMMAND SYSTEM
-// ==========================
-
+// Terminal command system variables
 const termInput = document.getElementById("terminalInput");
 
-let commandHistory = [];
-let historyIndex = -1;
+let commandHistory = []; // History of entered commands
+let historyIndex = -1; // Current position in command history
 
+// Handle terminal input key events
 termInput.addEventListener("keydown", e => {
 
   // ENTER → run command
