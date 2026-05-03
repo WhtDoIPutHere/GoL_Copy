@@ -240,6 +240,7 @@
         <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
+        <div class="shortcut-item"><span>m</span> <span>Cycle Mirror (H / V / None)</span></div>
         <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
         <div class="shortcut-item"><span>Ctrl + Z</span> <span>Undo</span></div>
         <div class="shortcut-item"><span>Ctrl + Y</span> <span>Redo</span></div>
@@ -366,6 +367,7 @@ let redoStack = []; // Stack for redo snapshots
 const MAX_HISTORY = 67; // Maximum undo/redo history size
 
 let patternRotation = 0; // Rotation angle for patterns (0, 90, 180, 270)
+let patternMirror = 0; // Mirror mode: 0 = none, 1 = horizontal, 2 = vertical
 
 // Conway's Game of Life rules (B3/S23)
 let survivalSet = new Set([2,3]); // Neighbors needed to survive
@@ -495,7 +497,7 @@ function rotatePattern(cells, angle) {
   const radians = (angle * Math.PI) / 180;
 
   // normalize rotation mapping (grid rotation, not true trig float math)
-  return cells.map(([x, y]) => {
+  const rotated = cells.map(([x, y]) => {
     let rx, ry;
 
     switch (angle % 360) {
@@ -518,6 +520,24 @@ function rotatePattern(cells, angle) {
 
     return [rx, ry];
   });
+
+  return rotated;
+}
+
+function transformPattern(cells, angle, mirror) {
+  const rotated = rotatePattern(cells, angle);
+
+  if (mirror === 1) {
+    // Mirror across horizontal axis (flip top/bottom)
+    return rotated.map(([x, y]) => [x, -y]);
+  }
+
+  if (mirror === 2) {
+    // Mirror across vertical axis (flip left/right)
+    return rotated.map(([x, y]) => [-x, y]);
+  }
+
+  return rotated;
 }
 
 // Main drawing function - renders the grid, cells, and UI elements
@@ -598,21 +618,19 @@ if (mode === "chaos") {
 
 // --- PATTERN MODE (Ghost shape + bounding box) ---
 if (mode !== "draw" && mode !== "chaos" && patterns[mode]) {
-  let rotated = rotatePattern(patterns[mode], patternRotation);
-let { bounds, centerX, centerY } = getPatternAnchor(rotated);
+  let rotated = transformPattern(patterns[mode], patternRotation, patternMirror);
+  let { bounds, centerX, centerY } = getPatternAnchor(rotated);
 
-if (patternGhostPreview) {
-  ctx.globalAlpha = 0.25;
-  ctx.fillStyle = eraseMode ? "red" : "white";
+  if (patternGhostPreview) {
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = eraseMode ? "red" : "white";
 
-  let rotated = rotatePattern(patterns[mode], patternRotation);
-
-for (let [dx, dy] of rotated) {
-    let px = (gx + dx - centerX) * cellSize + offsetX;
-    let py = (gy + dy - centerY) * cellSize + offsetY;
-    ctx.fillRect(px, py, cellSize, cellSize);
+    for (let [dx, dy] of rotated) {
+      let px = (gx + dx - centerX) * cellSize + offsetX;
+      let py = (gy + dy - centerY) * cellSize + offsetY;
+      ctx.fillRect(px, py, cellSize, cellSize);
+    }
   }
-}
 
   // Draw bounding box on top
   ctx.globalAlpha = 0.5;
@@ -1432,6 +1450,21 @@ if (e.key.toLowerCase() === "v") {
   log("Pattern rotated to " + patternRotation + "°", "action");
 }
 
+if (e.key.toLowerCase() === "m") {
+  patternMirror = (patternMirror + 1) % 3;
+  let label = "Pattern mirror: ";
+
+  if (patternMirror === 1) {
+    label += "horizontal";
+  } else if (patternMirror === 2) {
+    label += "vertical";
+  } else {
+    label += "none";
+  }
+
+  log(label, "action");
+}
+
 if (e.ctrlKey && e.key.toLowerCase() === "y") {
   e.preventDefault();
   redo();
@@ -1631,7 +1664,7 @@ grid.add(ck);
 
   // 2. This is your existing "Pattern" logic (keep this)
   if (mode !== "draw" && mode !== "chaos" && patterns[mode]) {
-  let rotated = rotatePattern(patterns[mode], patternRotation);
+  let rotated = transformPattern(patterns[mode], patternRotation, patternMirror);
   let {centerX, centerY} = getPatternAnchor(rotated);
 
   for (let [dx, dy] of rotated) {
