@@ -299,6 +299,11 @@
         <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
         <div class="shortcut-item"><span>m</span> <span>Cycle Mirror (H / V / None)</span></div>
         <div class="shortcut-item"><span>Ctrl + Drag</span> <span>Select Area</span></div>
+        <div class="shortcut-item"><span>Ctrl + A</span> <span>Select All</span></div>
+        <div class="shortcut-item"><span>W</span> <span>Toggle Wand Mode</span></div>
+        <div class="shortcut-item"><span>Click (Wand)</span> <span>Replace Selection</span></div>
+        <div class="shortcut-item"><span>Shift + Click (Wand)</span> <span>Add Blob</span></div>
+        <div class="shortcut-item"><span>Ctrl + Click (Wand)</span> <span>Subtract Blob</span></div>
         <div class="shortcut-item"><span>Ctrl + C</span> <span>Copy Selected Area</span></div>
         <div class="shortcut-item"><span>Ctrl + X</span> <span>Cut Selected Area</span></div>
         <div class="shortcut-item"><span>Ctrl + V</span> <span>Paste Clipboard Item</span></div>
@@ -417,6 +422,7 @@ let lastDrawnCell = null; // Last cell that was drawn to prevent duplicates
 let lastDrawCoords = null; // Last mouse coordinates for drawing
 
 let eraseMode = false; // Whether drawing erases cells instead of adding
+let wandMode = false; // Whether user is in wand selection mode
 let previousPattern = "draw"; // Previously selected pattern
 let showGrid = false; // Whether to show grid lines
 let fullCellMode = false; // Whether cells fill completely or show borders
@@ -439,6 +445,7 @@ let selectionActive = false; // Whether user is currently dragging a clipboard s
 let selectionStart = null; // Selection start coordinates
 let selectionEnd = null; // Selection end coordinates
 let selectionRect = null; // Completed selection rectangle
+let selectedCells = new Set(); // Current selected cell keys
 let clipboardHistory = []; // Last copied/cut shapes
 
 // Conway's Game of Life rules (B3/S23)
@@ -454,6 +461,68 @@ let eraseCellCount = 0; // Cells erased in current session
 
 // Object to store loaded patterns
 const patterns = {};
+
+if (!window.PATTERN_DATA) {
+  console.error("PATTERN_DATA failed to load!");
+}
+
+async function loadPatternFromURL() {
+  // Check if there's a file parameter in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const fileName = urlParams.get('file');
+  
+  if (!fileName) {
+    return; // No file parameter, nothing to load
+  }
+
+  try {
+    // Fetch the RLE file from the patterns directory
+    const response = await fetch(`patterns/${fileName}`);
+    if (!response.ok) {
+      throw new Error(`Failed to load pattern file: ${response.status} ${response.statusText}`);
+    }
+    
+    const rleText = await response.text();
+    
+    // Parse the RLE
+    let cells = parseRLE(rleText);
+    if (cells.length === 0) {
+      throw new Error("No cells found in RLE file");
+    }
+
+    // Clear current grid
+    grid.clear();
+    cellAges.clear();
+    generation = 0;
+    populationHistory = [];
+    updateStats();
+    updateGraphStats();
+
+    // Place loaded pattern using its natural coordinates
+    for (let [dx, dy] of cells) {
+      const k = key(dx, dy);
+      grid.add(k);
+      cellAges.set(k, 0);
+    }
+
+    // Fit the loaded pattern to the screen
+    fitPatternToScreen(cells);
+    log(`Loaded pattern from URL: ${fileName} (${cells.length} cells)`, "action");
+    log("Auto fit shape to screen", "system");
+    
+    // Update UI
+    updateGridButton();
+    updateFullCellButton();
+    updateEraseButton();
+    updateColorButton();
+    updateHeatmapButton();
+    updateStats();
+    
+  } catch (e) {
+    console.error("Error loading pattern from URL:", e);
+    alert("Error loading pattern from URL: " + e.message);
+  }
+}
 
 // Toggle UI panel visibility
 function toggleUI() {
@@ -534,6 +603,28 @@ function getPatternAnchor(pattern){
   let centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
   let centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
   return {bounds, centerX, centerY};
+}
+
+// Fit a pattern into the visible canvas area by adjusting the view
+function fitPatternToScreen(pattern){
+  const {bounds} = getPatternAnchor(pattern);
+  const patternWidth = bounds.maxX - bounds.minX + 1;
+  const patternHeight = bounds.maxY - bounds.minY + 1;
+
+  if (patternWidth <= 0 || patternHeight <= 0) return;
+
+  const margin = 2; // empty cells margin around pattern
+  const fitWidth = Math.floor(canvas.width / (patternWidth + margin));
+  const fitHeight = Math.floor(canvas.height / (patternHeight + margin));
+  const targetSize = Math.max(1, Math.min(fitWidth, fitHeight));
+
+  cellSize = Math.min(Math.max(targetSize, 2), 80);
+
+  const centerX = (bounds.minX + bounds.maxX + 1) / 2;
+  const centerY = (bounds.minY + bounds.maxY + 1) / 2;
+
+  offsetX = canvas.width / 2 - centerX * cellSize;
+  offsetY = canvas.height / 2 - centerY * cellSize;
 }
 
 // Get the color for a cell based on its age and display mode
@@ -621,11 +712,66 @@ function getSelectionBounds(){
   return { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
 }
 
+function updateSelectionRectFromCells(){
+  if(selectedCells.size === 0){
+    selectionStart = null;
+    selectionEnd = null;
+    selectionRect = null;
+    return;
+  }
+
+  let x1 = Infinity;
+  let y1 = Infinity;
+  let x2 = -Infinity;
+  let y2 = -Infinity;
+
+  for(const keyStr of selectedCells){
+    const [x, y] = parse(keyStr);
+    x1 = Math.min(x1, x);
+    y1 = Math.min(y1, y);
+    x2 = Math.max(x2, x);
+    y2 = Math.max(y2, y);
+  }
+
+  selectionStart = [x1, y1];
+  selectionEnd = [x2, y2];
+  selectionRect = { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+}
+
 function clearSelection(){
   selectionStart = null;
   selectionEnd = null;
   selectionActive = false;
   selectionRect = null;
+  selectedCells.clear();
+}
+
+function selectAllCells(){
+  if(grid.size === 0){
+    log("No live cells to select.", "warn");
+    return;
+  }
+
+  let x1 = Infinity;
+  let y1 = Infinity;
+  let x2 = -Infinity;
+  let y2 = -Infinity;
+
+  for(const k of grid){
+    const [x, y] = parse(k);
+    x1 = Math.min(x1, x);
+    y1 = Math.min(y1, y);
+    x2 = Math.max(x2, x);
+    y2 = Math.max(y2, y);
+  }
+
+  selectionStart = [x1, y1];
+  selectionEnd = [x2, y2];
+  selectionActive = false;
+  selectedCells = new Set(grid);
+  updateSelectionRectFromCells();
+
+  log(`Selected all live cells ${selectionRect.width}×${selectionRect.height}`, "action");
 }
 
 function updateClipboardMenu(){
@@ -703,6 +849,14 @@ function getCellsInSelection(){
   if(!bounds) return null;
 
   const cells = [];
+  if(selectedCells.size > 0){
+    for(const keyStr of selectedCells){
+      const [x, y] = parse(keyStr);
+      cells.push([x - bounds.x1, y - bounds.y1]);
+    }
+    return cells;
+  }
+
   for(const keyStr of grid){
     const [x, y] = parse(keyStr);
     if(x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2){
@@ -714,7 +868,7 @@ function getCellsInSelection(){
 }
 
 function copySelection(cut = false){
-  if(!selectionRect){
+  if(!selectionRect || selectedCells.size === 0){
     log("No selection to copy.", "warn");
     return;
   }
@@ -732,13 +886,12 @@ function copySelection(cut = false){
     undoStack.push(createSnapshot());
     if(undoStack.length > MAX_HISTORY) undoStack.shift();
 
-    for(const [dx, dy] of cells){
-      const cell = key(selectionRect.x1 + dx, selectionRect.y1 + dy);
-      grid.delete(cell);
-      cellAges.delete(cell);
+    for(const keyStr of selectedCells){
+      grid.delete(keyStr);
+      cellAges.delete(keyStr);
     }
 
-    selectionRect = null;
+    clearSelection();
     closeClipboardMenu();
   }
 }
@@ -971,8 +1124,16 @@ function getNeighbors(x,y){
   return n;
 }
 
+function recordPopulationSnapshot(){
+  if (populationHistory.length === 0 || populationHistory[populationHistory.length - 1] !== grid.size){
+    populationHistory.push(grid.size);
+    if (populationHistory.length > 200) populationHistory.shift();
+  }
+}
+
 // Advance the simulation by one generation using the current rules
 function step(){
+  recordPopulationSnapshot();
   let newGrid=new Set();
   let check=new Set();
 
@@ -1053,6 +1214,9 @@ function togglePlay(){
 
     // Clear redo history when a new action branch starts
     redoStack = [];
+
+    // Record the current population before the first step of the run
+    recordPopulationSnapshot();
   }
 
   running = !running;
@@ -1287,40 +1451,83 @@ function updateGraphStats() {
     (a,b)=>a + Math.pow(b-avg,2),0
   ) / n;
 
-// --- SLOPE (linear regression) ---
-let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+// --- IMPROVED SLOPE: Use recent window (last 50 generations) ---
+  const windowSize = Math.min(50, populationHistory.length);
+  const recentData = populationHistory.slice(-windowSize);
+  const windowN = recentData.length;
+  
+  let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
 
-for (let i = 0; i < n; i++) {
-  sumX += i;
-  sumY += populationHistory[i];
-  sumXY += i * populationHistory[i];
-  sumXX += i * i;
-}
-
-const denom = (n * sumXX - sumX * sumX);
-let slope = 0;
-
-if (denom !== 0) {
-  slope = (n * sumXY - sumX * sumY) / denom;
-}
-
-  // volatility
-  let volatility = 0;
-  for (let i = 1; i < n; i++) {
-    volatility += Math.abs(populationHistory[i] - populationHistory[i - 1]);
+  for (let i = 0; i < windowN; i++) {
+    sumX += i;
+    sumY += recentData[i];
+    sumXY += i * recentData[i];
+    sumXX += i * i;
   }
-  volatility /= (n - 1);
 
-  const normVol = volatility / (avg || 1);
+  const denom = (windowN * sumXX - sumX * sumX);
+  let slope = 0;
 
+  if (denom !== 0) {
+    slope = (windowN * sumXY - sumX * sumY) / denom;
+  }
+
+  // --- IMPROVED STABILITY: Detect periodicity and consistency ---
+  let stability = "High";
+  let volatility = 0;
+  
+  // Calculate short-term volatility (recent changes)
+  const recentWindow = Math.min(20, populationHistory.length);
+  const recent = populationHistory.slice(-recentWindow);
+  for (let i = 1; i < recent.length; i++) {
+    volatility += Math.abs(recent[i] - recent[i - 1]);
+  }
+  volatility /= (recent.length - 1);
+  
+  // Normalize volatility by average population
+  const recentAvg = recent.reduce((a,b)=>a+b,0) / recent.length;
+  const normVol = volatility / (recentAvg || 1);
+  
+  // Check for periodicity (autocorrelation-like)
+  let periodicity = 0;
+  if (recent.length >= 10) {
+    const periodCheck = Math.min(10, Math.floor(recent.length / 2));
+    for (let p = 2; p <= periodCheck; p++) {
+      let correlation = 0;
+      let count = 0;
+      for (let i = p; i < recent.length; i++) {
+        correlation += (recent[i] - recentAvg) * (recent[i - p] - recentAvg);
+        count++;
+      }
+      correlation /= count;
+      if (correlation > periodicity) periodicity = correlation;
+    }
+    periodicity /= (recent.reduce((a,b)=>a + Math.pow(b-recentAvg,2),0) / recent.length);
+  }
+  
+  // Determine stability based on volatility and periodicity
+  if (normVol < 0.05 && periodicity > 0.7) {
+    stability = "High"; // Very stable, possibly periodic
+  } else if (normVol < 0.15 && periodicity > 0.4) {
+    stability = "Medium"; // Moderately stable
+  } else if (normVol < 0.3) {
+    stability = "Low"; // Unstable but not chaotic
+  } else {
+    stability = "Chaotic"; // Highly unstable
+  }
+
+  // --- TREND DETECTION ---
   let trend = "Static";
-  if (normVol > 0.15 || variance > 100) {
+  const recentSlope = slope;
+  const recentChange = normVol;
+  
+  if (Math.abs(recentSlope) > 0.05) {
+    trend = recentSlope > 0 ? "Growing" : "Shrinking";
+  } else if (recentChange > 0.2) {
+    trend = "Oscillating";
+  } else if (recentChange > 0.05) {
     trend = "Dynamic";
   }
-
-  let stability = "High";
-  if (variance > 500) stability = "Low";
-  else if (variance > 100) stability = "Medium";
 
   document.getElementById("statPeak").textContent = peak;
   document.getElementById("statLow").textContent = low;
@@ -1328,10 +1535,10 @@ if (denom !== 0) {
   const slopeEl = document.getElementById("statSlope");
 slopeEl.textContent = slope.toFixed(3);
 
-// Color coding
-if (slope > 0.05) {
+// Color coding for slope
+if (slope > 0.02) {
   slopeEl.style.color = "lime";   // growing
-} else if (slope < -0.05) {
+} else if (slope < -0.02) {
   slopeEl.style.color = "red";    // shrinking
 } else {
   slopeEl.style.color = "white";  // stable
@@ -1466,17 +1673,17 @@ async function importRLE(){
     let patternName = "imported_" + Date.now();
     patterns[patternName] = cells;
 
-    // Immediately place imported pattern at center
-const centerX = Math.floor((-offsetX + canvas.width / 2) / cellSize);
-const centerY = Math.floor((-offsetY + canvas.height / 2) / cellSize);
+    // Place imported pattern using its natural coordinates
+    for (let [dx, dy] of cells) {
+      const k = key(dx, dy);
+      grid.add(k);
+      cellAges.set(k, 0);
+    }
 
-for (let [dx, dy] of cells) {
-  const k = key(centerX + dx, centerY + dy);
-  grid.add(k);
-  cellAges.set(k, 0);
-}
-
-log(`Imported + placed pattern (${cells.length} cells)`, "action");
+    // Fit the imported pattern to the screen
+    fitPatternToScreen(cells);
+    log(`Imported pattern from RLE (${cells.length} cells)`, "action");
+    log("Auto fit shape to screen", "system");
 
     let select = document.getElementById("patternSelect");
     let option = document.createElement("option");
@@ -1663,6 +1870,19 @@ if (e.ctrlKey && e.key.toLowerCase() === "z") {
   return;
 }
 
+if (e.ctrlKey && e.key.toLowerCase() === "a") {
+  e.preventDefault();
+  selectAllCells();
+  return;
+}
+
+if (e.key.toLowerCase() === "w") {
+  e.preventDefault();
+  wandMode = !wandMode;
+  log(wandMode ? "Wand mode ON - click to select blobs" : "Wand mode OFF", "action");
+  return;
+}
+
 if (e.ctrlKey && e.key.toLowerCase() === "c") {
   e.preventDefault();
   copySelection(false);
@@ -1807,6 +2027,73 @@ canvas.addEventListener("mousedown",e=>{
     return;
   }
 
+  if(wandMode){
+    e.preventDefault();
+    const gx = Math.floor((e.clientX-offsetX)/cellSize);
+    const gy = Math.floor((e.clientY-offsetY)/cellSize);
+    const startKey = key(gx, gy);
+
+    if(!grid.has(startKey)){
+      log("No live cell under cursor.", "warn");
+      return;
+    }
+
+    const stack = [startKey];
+    const visited = new Set([startKey]);
+    const neighbors = [
+      [-1,-1],[-1,0],[-1,1],
+      [0,-1],[0,1],
+      [1,-1],[1,0],[1,1]
+    ];
+    let x1 = gx;
+    let y1 = gy;
+    let x2 = gx;
+    let y2 = gy;
+
+    while(stack.length){
+      const current = stack.pop();
+      const [x, y] = parse(current);
+
+      for(const [dx, dy] of neighbors){
+        const nx = x + dx;
+        const ny = y + dy;
+        const nkey = key(nx, ny);
+
+        if(grid.has(nkey) && !visited.has(nkey)){
+          visited.add(nkey);
+          stack.push(nkey);
+          x1 = Math.min(x1, nx);
+          y1 = Math.min(y1, ny);
+          x2 = Math.max(x2, nx);
+          y2 = Math.max(y2, ny);
+        }
+      }
+    }
+
+    const action = e.ctrlKey ? "subtract" : e.shiftKey ? "add" : "replace";
+
+    if(action === "replace"){
+      selectedCells = new Set(visited);
+    } else if(action === "add"){
+      for(const keyStr of visited) selectedCells.add(keyStr);
+    } else {
+      for(const keyStr of visited) selectedCells.delete(keyStr);
+    }
+
+    updateSelectionRectFromCells();
+
+    if(selectedCells.size === 0){
+      log("Selection cleared.", "action");
+    } else if(action === "replace"){
+      log(`Selected ${visited.size} conjoined cells ${selectionRect.width}×${selectionRect.height}`, "action");
+    } else if(action === "add"){
+      log(`Added ${visited.size} cells to selection (${selectedCells.size} total)`, "action");
+    } else {
+      log(`Removed ${visited.size} cells from selection (${selectedCells.size} remaining)`, "action");
+    }
+    return;
+  }
+
   if(e.ctrlKey){
     e.preventDefault();
     selectionActive = true;
@@ -1872,6 +2159,13 @@ canvas.addEventListener("mouseup", () => {
     selectionActive = false;
     selectionRect = getSelectionBounds();
     if(selectionRect && selectionRect.width > 0 && selectionRect.height > 0){
+      selectedCells.clear();
+      for(const keyStr of grid){
+        const [x, y] = parse(keyStr);
+        if(x >= selectionRect.x1 && x <= selectionRect.x2 && y >= selectionRect.y1 && y <= selectionRect.y2){
+          selectedCells.add(keyStr);
+        }
+      }
       log(`Selected area ${selectionRect.width}×${selectionRect.height}`, "action");
     } else {
       clearSelection();
