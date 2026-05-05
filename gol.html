@@ -302,6 +302,7 @@
     <button id="stepBtn" onclick="doStep()">Step</button>
     <button id="resetViewBtn" onclick="resetView()">Reset View</button>
     <button id="dataBtn" onclick="toggleDataPanel()">Data</button>
+    <button id="wallToroidBtn" onclick="setWallToroid()">Wall/Toroid</button>
     <button onclick="clearGrid()">Clear</button>
   </div>
 
@@ -335,6 +336,7 @@
         <div class="shortcut-item"><span>X</span> <span>Step Generation</span></div>
         <div class="shortcut-item"><span>0</span> <span>Reset View</span></div>
         <div class="shortcut-item"><span>Ctrl + D</span> <span>Toggle Data Panel</span></div>
+        <div class="shortcut-item"><span>Ctrl + T</span> <span>Set Wall/Toroid</span></div>
         <div class="shortcut-item"><span>Delete/Backspace</span> <span>Clear Grid</span></div>
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
@@ -568,6 +570,9 @@ let selectionEnd = null; // Selection end coordinates
 let selectionRect = null; // Completed selection rectangle
 let selectedCells = new Set(); // Current selected cell keys
 let clipboardHistory = []; // Last copied/cut shapes
+
+let wallRegions = new Set(); // Set of wall cell coordinates as strings "x,y"
+let toroidRegions = new Map(); // Map of toroid region IDs to their bounds {x1,y1,x2,y2}
 
 function getSnappedMirrorLineEnd(start, current) {
   const dx = current[0] - start[0];
@@ -1131,6 +1136,38 @@ function draw(){
     ctx.restore();
   }
 
+  // Draw wall regions
+  ctx.save();
+  ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 1;
+  for(let k of wallRegions){
+    let [x,y]=parse(k);
+    let sx=x*cellSize+offsetX;
+    let sy=y*cellSize+offsetY;
+    if(sx>-cellSize && sy>-cellSize && sx<canvas.width && sy<canvas.height){
+      ctx.fillRect(sx, sy, cellSize, cellSize);
+      ctx.strokeRect(sx, sy, cellSize, cellSize);
+    }
+  }
+  ctx.restore();
+
+  // Draw toroid regions
+  ctx.save();
+  ctx.strokeStyle = "cyan";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  for(let [id, bounds] of toroidRegions){
+    const sx = bounds.x1 * cellSize + offsetX;
+    const sy = bounds.y1 * cellSize + offsetY;
+    const sw = bounds.width * cellSize;
+    const sh = bounds.height * cellSize;
+    if(sx + sw > 0 && sy + sh > 0 && sx < canvas.width && sy < canvas.height){
+      ctx.strokeRect(sx, sy, sw, sh);
+    }
+  }
+  ctx.restore();
+
 // Brush preview
 let brush = parseInt(document.getElementById("brushSize").value);
 let mode = document.getElementById("patternSelect").value;
@@ -1287,6 +1324,25 @@ function getNeighbors(x,y){
   return n;
 }
 
+function getToroidNeighbors(x,y, bounds){
+  let n=0;
+  for(let dx=-1;dx<=1;dx++){
+    for(let dy=-1;dy<=1;dy++){
+      if(dx||dy){
+        let nx = x + dx;
+        let ny = y + dy;
+        // Wrap around toroid boundaries
+        if(nx < bounds.x1) nx = bounds.x2;
+        else if(nx > bounds.x2) nx = bounds.x1;
+        if(ny < bounds.y1) ny = bounds.y2;
+        else if(ny > bounds.y2) ny = bounds.y1;
+        if(grid.has(key(nx,ny))) n++;
+      }
+    }
+  }
+  return n;
+}
+
 function recordPopulationSnapshot(){
   if (populationHistory.length === 0 || populationHistory[populationHistory.length - 1] !== grid.size){
     populationHistory.push(grid.size);
@@ -1313,7 +1369,29 @@ function step(){
 
   for(let k of check){
     let [x,y]=parse(k);
-    let n=getNeighbors(x,y);
+    
+    // Check if cell touches a wall - if so, it dies
+    let touchesWall = false;
+    for(let dx=-1;dx<=1;dx++){
+      for(let dy=-1;dy<=1;dy++){
+        if(wallRegions.has(key(x+dx,y+dy))){
+          touchesWall = true;
+          break;
+        }
+      }
+    }
+    if(touchesWall) continue; // Cell dies if it touches a wall
+    
+    // Check if cell is in a toroid region
+    let toroidBounds = null;
+    for(let [id, bounds] of toroidRegions){
+      if(x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2){
+        toroidBounds = bounds;
+        break;
+      }
+    }
+    
+    let n = toroidBounds ? getToroidNeighbors(x,y, toroidBounds) : getNeighbors(x,y);
     let alive=grid.has(k);
 
     // Use customizable rules (birthSet / survivalSet)
@@ -1617,6 +1695,8 @@ function clearGrid(){
   running = false;
   populationHistory = [];
   cellAges.clear();
+  wallRegions.clear();
+  toroidRegions.clear();
   updateButton();
   updateStats();
   
@@ -1685,6 +1765,62 @@ function toggleDataPanel(){
     }
   } else {
     updateDataPanel();
+  }
+}
+
+function setWallToroid(){
+  if(!selectionRect){
+    log("No selection - select an area first", "warn");
+    return;
+  }
+
+  // Check current state of the selection area
+  let hasWall = false;
+  let hasToroid = false;
+  let toroidId = null;
+  for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
+    for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+      const k = key(x,y);
+      if(wallRegions.has(k)) hasWall = true;
+      for(let [id, bounds] of toroidRegions){
+        if(x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2){
+          hasToroid = true;
+          toroidId = id;
+          break;
+        }
+      }
+    }
+  }
+
+  // Cycle through states: none -> wall -> toroid -> none
+  if(hasWall){
+    // Remove wall, set as toroid
+    for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
+      for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+        const k = key(x,y);
+        wallRegions.delete(k);
+      }
+    }
+    // Add as toroid
+    const id = Date.now(); // Simple unique ID
+    toroidRegions.set(id, {
+      x1: selectionRect.x1, y1: selectionRect.y1,
+      x2: selectionRect.x2, y2: selectionRect.y2,
+      width: selectionRect.width, height: selectionRect.height
+    });
+    log(`Set ${selectionRect.width}×${selectionRect.height} area as toroid`, "action");
+  } else if(hasToroid){
+    // Remove toroid
+    toroidRegions.delete(toroidId);
+    log(`Removed toroid from ${selectionRect.width}×${selectionRect.height} area`, "action");
+  } else {
+    // Set as wall
+    for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
+      for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+        wallRegions.add(key(x,y));
+      }
+    }
+    log(`Set ${selectionRect.width}×${selectionRect.height} area as wall`, "action");
   }
 }
 
@@ -2207,6 +2343,12 @@ if (e.shiftKey && e.key.toLowerCase() === "m") {
 if (e.ctrlKey && e.key.toLowerCase() === "d") {
     e.preventDefault();
     toggleDataPanel();
+    return;
+  }
+
+  if (e.ctrlKey && e.key.toLowerCase() === "t") {
+    e.preventDefault();
+    setWallToroid();
     return;
   }
 
