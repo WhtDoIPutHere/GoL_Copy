@@ -301,6 +301,7 @@
     <button id="rulesBtn" class="paused" onclick="toggleRules()">Rules</button>
     <button id="stepBtn" onclick="doStep()">Step</button>
     <button id="resetViewBtn" onclick="resetView()">Reset View</button>
+    <button id="dataBtn" onclick="toggleDataPanel()">Data</button>
     <button onclick="clearGrid()">Clear</button>
   </div>
 
@@ -333,6 +334,7 @@
         <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
         <div class="shortcut-item"><span>X</span> <span>Step Generation</span></div>
         <div class="shortcut-item"><span>0</span> <span>Reset View</span></div>
+        <div class="shortcut-item"><span>Ctrl + D</span> <span>Toggle Data Panel</span></div>
         <div class="shortcut-item"><span>Delete/Backspace</span> <span>Clear Grid</span></div>
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
@@ -442,6 +444,27 @@
     <div><b>Slope:</b> <span id="statSlope">0</span></div>
     <div><b>Stability:</b> <span id="statStability">-</span></div>
   </div>
+  <div id="dataPanel" style="
+    display:none;
+    flex-direction:column;
+    font-size:12px;
+    gap:4px;
+    padding:6px;
+    border:1px solid #555;
+    background:rgba(0,0,0,0.4);
+    border-radius:0px;
+    min-width:220px;
+  ">
+    <div><b>Grid Cells:</b> <span id="dataLive">0</span></div>
+    <div><b>Grid BB:</b> <span id="dataBB">0x0</span></div>
+    <div><b>Grid Area:</b> <span id="dataArea">0</span></div>
+    <div><b>Density:</b> <span id="dataDensity">0%</span></div>
+    <hr style="border:none; border-top:1px solid #555; margin:4px 0;">
+    <div><b>Selection Cells:</b> <span id="dataSelLive">-</span></div>
+    <div><b>Selection BB:</b> <span id="dataSelBB">-</span></div>
+    <div><b>Selection Area:</b> <span id="dataSelArea">-</span></div>
+    <div><b>Selection Density:</b> <span id="dataSelDensity">-</span></div>
+  </div>
 </div>
 
   <!-- Rules panel: absolute so opening doesn't change UI layout -->
@@ -474,7 +497,6 @@
           <option value="B357/S238">Pseudo Life</option>
         </select>
         <button onclick="resetRules()" title="Reset rules to default B3/S23">Reset</button>
-        <div id="ruleString" style="margin-top:9px; font-size:12px;"></div> 
       </div>
     </div>
   </div>
@@ -527,6 +549,7 @@ let redoStack = []; // Stack for redo snapshots
 const MAX_HISTORY = 67; // Maximum undo/redo history size
 
 let sHeld = false; // Whether 's' key is currently held down for speed adjustment
+let showDataPanel = false; // Whether the data panel is visible
 
 let patternRotation = 0; // Rotation angle for patterns (0, 90, 180, 270)
 let patternMirror = 0; // Mirror mode: 0 = none, 1 = horizontal, 2 = vertical
@@ -824,6 +847,7 @@ function updateSelectionRectFromCells(){
     selectionStart = null;
     selectionEnd = null;
     selectionRect = null;
+    updateDataPanel();
     return;
   }
 
@@ -843,9 +867,11 @@ function updateSelectionRectFromCells(){
   selectionStart = [x1, y1];
   selectionEnd = [x2, y2];
   selectionRect = { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+  updateDataPanel();
 }
 
 function clearSelection(){
+
   selectionStart = null;
   selectionEnd = null;
   selectionActive = false;
@@ -879,6 +905,7 @@ function selectAllCells(){
   updateSelectionRectFromCells();
 
   log(`Selected all live cells ${selectionRect.width}×${selectionRect.height}`, "action");
+  updateDataPanel();
 }
 
 function updateClipboardMenu(){
@@ -1602,6 +1629,51 @@ document.getElementById("statStability").textContent = "-";
 function updateStats(){
   document.getElementById("genCount").textContent = generation;
   document.getElementById("liveCount").textContent = grid.size;
+  updateDataPanel();
+}
+
+function getBoundsFromSet(cellSet) {
+  if (!cellSet || cellSet.size === 0) return null;
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const keyStr of cellSet) {
+    const [x, y] = parse(keyStr);
+    x1 = Math.min(x1, x);
+    y1 = Math.min(y1, y);
+    x2 = Math.max(x2, x);
+    y2 = Math.max(y2, y);
+  }
+  return { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+}
+
+function updateDataPanel(){
+  const live = grid.size;
+  const bounds = getBoundsFromSet(grid);
+  const area = bounds ? bounds.width * bounds.height : 0;
+  const density = area ? Math.round((live / area) * 1000) / 10 : 0;
+
+  document.getElementById("dataLive").textContent = live;
+  document.getElementById("dataBB").textContent = bounds ? `${bounds.width}x${bounds.height}` : "0x0";
+  document.getElementById("dataArea").textContent = area;
+  document.getElementById("dataDensity").textContent = `${density}%`;
+
+  const selLive = selectedCells.size;
+  const selBounds = getBoundsFromSet(selectedCells);
+  const selArea = selBounds ? selBounds.width * selBounds.height : 0;
+  const selDensity = selArea ? Math.round((selLive / selArea) * 1000) / 10 : 0;
+
+  document.getElementById("dataSelLive").textContent = selLive || "-";
+  document.getElementById("dataSelBB").textContent = selBounds ? `${selBounds.width}x${selBounds.height}` : "-";
+  document.getElementById("dataSelArea").textContent = selArea || "-";
+  document.getElementById("dataSelDensity").textContent = selBounds ? `${selDensity}%` : "-";
+}
+
+function toggleDataPanel(){
+  showDataPanel = !showDataPanel;
+  const panel = document.getElementById('dataPanel');
+  if(panel){
+    panel.style.display = showDataPanel ? 'flex' : 'none';
+  }
+  updateDataPanel();
 }
 
 function updateGraphStats() {
@@ -1971,9 +2043,6 @@ function applyRulePreset(ruleStr) {
   renderRuleBoxes();
   updateRuleString();
   log(`Rule preset applied: ${ruleStr}`, "action");
-  
-  // Reset dropdown to placeholder
-  document.getElementById('rulePreset').value = "";
 }
 
 function applyRuleString(ruleStr) {
@@ -2123,7 +2192,13 @@ if (e.shiftKey && e.key.toLowerCase() === "m") {
   return;
 }
 
-if (e.key.toLowerCase() === "m") {
+if (e.ctrlKey && e.key.toLowerCase() === "m") {
+    e.preventDefault();
+    toggleDataPanel();
+    return;
+  }
+
+  if (e.key.toLowerCase() === "m") {
   patternMirror = (patternMirror + 1) % 3;
   let label = "Pattern mirror: ";
 
