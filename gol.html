@@ -319,6 +319,7 @@
     <div class="shortcut-dropdown">
         <button id="shortcut-btn" style="background: #445;">Shortcuts</button>
       <div class="shortcut-content">
+         <div style="font-weight: bold; color: lime; margin: 6px 0;">Key Shortcuts:</div>
         <div class="shortcut-item"><span>Space</span> <span>Play/Pause</span></div>
         <div class="shortcut-item"><span>[ and ]</span> <span>Brush Size</span></div>
         <div class="shortcut-item"><span>S + [ and ]</span> <span>Speed</span></div>
@@ -349,6 +350,18 @@
         <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
         <div class="shortcut-item"><span>Ctrl + Z</span> <span>Undo</span></div>
         <div class="shortcut-item"><span>Ctrl + Y</span> <span>Redo</span></div>
+        <div style="font-weight: bold; color: lime; margin: 6px 0;">Terminal Commands:</div>
+        <div class="shortcut-item"><span>play</span> <span>Start simulation</span></div>
+        <div class="shortcut-item"><span>pause</span> <span>Pause simulation</span></div>
+        <div class="shortcut-item"><span>step</span> <span>Advance 1 generation</span></div>
+        <div class="shortcut-item"><span>ff &lt;steps&gt;</span> <span>Fast forward X generations</span></div>
+        <div class="shortcut-item"><span>speed &lt;X&gt;</span> <span>Set simulation speed</span></div>
+        <div class="shortcut-item"><span>brush &lt;X&gt;</span> <span>Set brush size</span></div>
+        <div class="shortcut-item"><span>rule &lt;B3/S23&gt;</span> <span>Set rule string</span></div>
+        <div class="shortcut-item"><span>load &lt;file.rle&gt;</span> <span>Load pattern file</span></div>
+        <div class="shortcut-item"><span>stats</span> <span>Show generation & cell count</span></div>
+        <div class="shortcut-item"><span>clear</span> <span>Clear terminal output</span></div>
+        <div class="shortcut-item"><span>help</span> <span>Show all commands</span></div>
       </div>
     </div>
     
@@ -2643,6 +2656,18 @@ function runCommand(cmd) {
       log("Stepped 1 generation");
       break;
 
+    case "ff":
+      if (args[1] && !isNaN(args[1])) {
+        const steps = parseInt(args[1]);
+        for (let i = 0; i < steps; i++) {
+          step();
+        }
+        log(`Fast forwarded ${steps} generations`);
+      } else {
+        log("Usage: ff <number>");
+      }
+      break;
+
     case "speed":
       if (args[1]) {
         document.getElementById("speed").value = args[1];
@@ -2675,7 +2700,7 @@ function runCommand(cmd) {
 
     case "help":
       log("Commands:");
-      log("play, pause, step");
+      log("play, pause, step, ff <steps>");
       log("speed X, brush X");
       log("rule B3/S23");
       log("load filename.rle");

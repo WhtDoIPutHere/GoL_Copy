@@ -88,25 +88,29 @@
   /* Line height for table cells */
   td {
     line-height: 1.3;
+    min-height: 70px;
   }
 
+  /* Fixed width for preview column */
+  th:nth-child(1), td:nth-child(1) { width: 80px; text-align: center; }
+
   /* Fixed width for favorite star column */
-  th:nth-child(1), td:nth-child(1) { width: 40px; text-align: center; }
+  th:nth-child(2), td:nth-child(2) { width: 40px; text-align: center; }
 
   /* Fixed width for name column */
-  th:nth-child(2), td:nth-child(2) { width: 80px; }
+  th:nth-child(3), td:nth-child(3) { width: 80px; }
 
   /* Flexible width for description column */
-  th:nth-child(3), td:nth-child(3) { width: auto; }
+  th:nth-child(4), td:nth-child(4) { width: auto; }
 
   /* Fixed width for rule column */
-  th:nth-child(4), td:nth-child(4) { width: 100px; }
+  th:nth-child(5), td:nth-child(5) { width: 100px; }
 
   /* Fixed width for cells column */
-  th:nth-child(5), td:nth-child(5) { width: 80px; text-align: left;}
+  th:nth-child(6), td:nth-child(6) { width: 80px; text-align: left;}
 
   /* Fixed width for bounding box column */
-  th:nth-child(6), td:nth-child(6) { width: 120px; }
+  th:nth-child(7), td:nth-child(7) { width: 120px; }
 
   /* Small text styling */
   .small {
@@ -121,7 +125,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: help;
-    min-height: 1.4em;
   }
 
   /* Rule text styling */
@@ -188,6 +191,7 @@
   <table>
     <thead>
       <tr>
+        <th>Preview</th>
         <th>★</th>
         <th onclick="sortBy('Name')" id="h-Name">Name</th>
         <th onclick="sortBy('Description')" id="h-Description">Description</th>

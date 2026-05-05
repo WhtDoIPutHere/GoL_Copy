@@ -180,6 +180,7 @@ function render() {
     const row = document.createElement("tr");
 
     row.innerHTML = `
+      <td><canvas width="70" height="50" style="border: 1px solid #333;"></canvas></td>
       <td>
         <span onclick="toggleFavorite('${p["Pattern File"]}')"
               style="cursor:pointer;">
@@ -202,6 +203,10 @@ function render() {
     `;
 
     body.appendChild(row);
+    
+    // Render preview after adding to DOM
+    const canvas = row.querySelector('canvas');
+    renderPreview(canvas, p["Pattern File"]);
   }
 
   renderPagination();
@@ -223,5 +228,98 @@ function renderPagination() {
       render();
     };
     container.appendChild(btn);
+  }
+}
+
+// Parse RLE format into array of [x,y] coordinates
+function parseRLE(rle) {
+  // Clean input: remove comments, headers, and whitespace
+  rle = rle
+    .split("\n")
+    .filter(line => 
+      !line.startsWith("#") &&     // remove comments
+      !line.startsWith("x")        // remove header
+    )
+    .join("")
+    .replace(/\s+/g, "");          // remove whitespace
+
+  let cells = [];
+  let x = 0, y = 0;
+  let count = "";
+
+  for (let i = 0; i < rle.length; i++) {
+    let c = rle[i];
+
+    if (!isNaN(c)) {
+      count += c;
+      continue;
+    }
+
+    let num = count ? parseInt(count) : 1;
+    count = "";
+
+    if (c === "o") {
+      for (let j = 0; j < num; j++) {
+        cells.push([x + j, y]);
+      }
+      x += num;
+    }
+
+    else if (c === "b") {
+      x += num;
+    }
+
+    else if (c === "$") {
+      y += num;
+      x = 0;
+    }
+
+    else if (c === "!") {
+      break;
+    }
+  }
+
+  return cells;
+}
+
+// Render a pattern preview on a canvas
+async function renderPreview(canvas, patternFile) {
+  try {
+    const response = await fetch(`patterns/${patternFile}`);
+    if (!response.ok) return;
+    
+    const rleText = await response.text();
+    const cells = parseRLE(rleText);
+    
+    if (cells.length === 0) return;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Find bounds
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let [x, y] of cells) {
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+    
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+    
+    // Scale to fit canvas
+    const scale = Math.min(canvas.width / width, canvas.height / height);
+    const offsetX = (canvas.width - width * scale) / 2;
+    const offsetY = (canvas.height - height * scale) / 2;
+    
+    ctx.fillStyle = 'lime'; // Cell green color
+    for (let [x, y] of cells) {
+      const px = offsetX + (x - minX) * scale;
+      const py = offsetY + (y - minY) * scale;
+      ctx.fillRect(px, py, scale, scale);
+    }
+  } catch (e) {
+    // Silently fail for previews
   }
 }
