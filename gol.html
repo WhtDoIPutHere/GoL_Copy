@@ -331,6 +331,9 @@
         <div class="shortcut-item"><span>R</span> <span>Toggle Rules</span></div>
         <div class="shortcut-item"><span>T</span> <span>Toggle Ghost</span></div>
         <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
+        <div class="shortcut-item"><span>X</span> <span>Step Generation</span></div>
+        <div class="shortcut-item"><span>0</span> <span>Reset View</span></div>
+        <div class="shortcut-item"><span>Delete/Backspace</span> <span>Clear Grid</span></div>
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
         <div class="shortcut-item"><span>m</span> <span>Cycle Pattern Mirror</span></div>
@@ -449,6 +452,27 @@
     <div id="birthBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
     <div style="display:flex; gap:8px; justify-content:space-between; align-items:center;">
       <div style="display:flex; gap:6px;">
+        <select id="rulePreset" onchange="applyRulePreset(this.value)" style="font-size:11px; padding:2px;">
+          <option value="">Presets...</option>
+          <option value="B3/S23">Conway's Game of Life</option>
+          <option value="B36/S23">HighLife</option>
+          <option value="B2/S">Seeds</option>
+          <option value="B3/S012345678">Life without Death</option>
+          <option value="B3/S12">Flock</option>
+          <option value="B3/S1234">Maze</option>
+          <option value="B3/S12345">Mazectric</option>
+          <option value="B3/S234">Coral</option>
+          <option value="B3/S245">Walled Cities</option>
+          <option value="B3/S45678">Gnarl</option>
+          <option value="B3/S4567">Stains</option>
+          <option value="B3/S456">Day & Night</option>
+          <option value="B3/S45678">Diamoeba</option>
+          <option value="B1357/S1357">Replicator</option>
+          <option value="B34/S34">34 Life</option>
+          <option value="B3678/S34678">Assimilation</option>
+          <option value="B357/S1358">Amoeba</option>
+          <option value="B357/S238">Pseudo Life</option>
+        </select>
         <button onclick="resetRules()" title="Reset rules to default B3/S23">Reset</button>
         <div id="ruleString" style="margin-top:9px; font-size:12px;"></div> 
       </div>
@@ -1922,6 +1946,36 @@ function resetRules(){
   updateRuleString();
 }
 
+function applyRulePreset(ruleStr) {
+  if (!ruleStr) return; // Empty selection
+  
+  const match = ruleStr.match(/B(\d*)\/S(\d*)/i);
+  if (!match) return;
+  
+  const birthStr = match[1] || "";
+  const surviveStr = match[2] || "";
+  
+  birthSet.clear();
+  survivalSet.clear();
+  
+  for (let char of birthStr) {
+    const num = parseInt(char);
+    if (!isNaN(num)) birthSet.add(num);
+  }
+  
+  for (let char of surviveStr) {
+    const num = parseInt(char);
+    if (!isNaN(num)) survivalSet.add(num);
+  }
+  
+  renderRuleBoxes();
+  updateRuleString();
+  log(`Rule preset applied: ${ruleStr}`, "action");
+  
+  // Reset dropdown to placeholder
+  document.getElementById('rulePreset').value = "";
+}
+
 function applyRuleString(ruleStr) {
   const match = ruleStr.match(/B(\d*)\/S(\d*)/i);
 
@@ -2191,6 +2245,24 @@ if (e.ctrlKey && e.key.toLowerCase() === "y") {
 
   if (e.key.toLowerCase() === "t") {
     toggleGhost();
+  }
+
+  if (e.key.toLowerCase() === "x") {
+    e.preventDefault();
+    step();
+    log("Stepped 1 generation", "action");
+  }
+
+  if (e.key === "0") {
+    e.preventDefault();
+    resetView();
+    log("View reset", "action");
+  }
+
+  if (e.key === "Delete" || e.key === "Backspace") {
+    e.preventDefault();
+    clearGrid();
+    log("Grid cleared", "action");
   }
 
 });
