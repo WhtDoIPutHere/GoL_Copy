@@ -446,14 +446,18 @@
   </div>
   <div id="dataPanel" style="
     display:none;
+    position:fixed;
+    left:0;
+    top:0;
     flex-direction:column;
     font-size:12px;
     gap:4px;
     padding:6px;
     border:1px solid #555;
-    background:rgba(0,0,0,0.4);
-    border-radius:0px;
+    background:rgba(0,0,0,0.9);
+    border-radius:8px;
     min-width:220px;
+    z-index:1002;
   ">
     <div><b>Grid Cells:</b> <span id="dataLive">0</span></div>
     <div><b>Grid BB:</b> <span id="dataBB">0x0</span></div>
@@ -1657,7 +1661,7 @@ function updateDataPanel(){
   document.getElementById("dataDensity").textContent = `${density}%`;
 
   const selLive = selectedCells.size;
-  const selBounds = getBoundsFromSet(selectedCells);
+  const selBounds = selectionRect || getBoundsFromSet(selectedCells);
   const selArea = selBounds ? selBounds.width * selBounds.height : 0;
   const selDensity = selArea ? Math.round((selLive / selArea) * 1000) / 10 : 0;
 
@@ -1672,8 +1676,16 @@ function toggleDataPanel(){
   const panel = document.getElementById('dataPanel');
   if(panel){
     panel.style.display = showDataPanel ? 'flex' : 'none';
+    if(showDataPanel){
+      updateDataPanel();
+      const left = Math.min(mouseX + 12, window.innerWidth - panel.offsetWidth - 10);
+      const top = Math.min(mouseY + 12, window.innerHeight - panel.offsetHeight - 10);
+      panel.style.left = `${Math.max(10, left)}px`;
+      panel.style.top = `${Math.max(10, top)}px`;
+    }
+  } else {
+    updateDataPanel();
   }
-  updateDataPanel();
 }
 
 function updateGraphStats() {
@@ -2192,7 +2204,7 @@ if (e.shiftKey && e.key.toLowerCase() === "m") {
   return;
 }
 
-if (e.ctrlKey && e.key.toLowerCase() === "m") {
+if (e.ctrlKey && e.key.toLowerCase() === "d") {
     e.preventDefault();
     toggleDataPanel();
     return;
