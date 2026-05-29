@@ -663,6 +663,48 @@ async function loadPatternFromURL() {
   }
 }
 
+async function loadPatternFromFile(fileName) {
+  try {
+    const response = await fetch(`patterns/${fileName}`);
+    if (!response.ok) {
+      throw new Error(`Failed to load pattern file: ${response.status} ${response.statusText}`);
+    }
+
+    const rleText = await response.text();
+    const cells = parseRLE(rleText);
+    if (cells.length === 0) {
+      throw new Error("No cells found in RLE file");
+    }
+
+    grid.clear();
+    cellAges.clear();
+    generation = 0;
+    populationHistory = [];
+    updateStats();
+    updateGraphStats();
+
+    for (let [dx, dy] of cells) {
+      const k = key(dx, dy);
+      grid.add(k);
+      cellAges.set(k, 0);
+    }
+
+    fitPatternToScreen(cells);
+    log(`Loaded pattern from file: ${fileName} (${cells.length} cells)`, "action");
+    log("Auto fit shape to screen", "system");
+
+    updateGridButton();
+    updateFullCellButton();
+    updateEraseButton();
+    updateColorButton();
+    updateHeatmapButton();
+    updateStats();
+  } catch (e) {
+    console.error("Error loading pattern file:", e);
+    alert("Error loading pattern file: " + e.message);
+  }
+}
+
 // Toggle UI panel visibility
 function toggleUI() {
   const ui = document.getElementById("ui");
@@ -2931,7 +2973,7 @@ termInput.addEventListener("keydown", e => {
 });
 
 function runCommand(cmd) {
-  const args = cmd.split(" ");
+  const args = cmd.trim().split(/\s+/);
   const base = args[0].toLowerCase();
 
   switch (base) {
@@ -2971,15 +3013,23 @@ function runCommand(cmd) {
 
     case "speed":
       if (args[1]) {
-        document.getElementById("speed").value = args[1];
+        const speedInput = document.getElementById("speed");
+        speedInput.value = args[1];
+        speedInput.dispatchEvent(new Event("input"));
         log("Speed = " + args[1]);
+      } else {
+        log("Usage: speed <number>");
       }
       break;
 
     case "brush":
       if (args[1]) {
-        document.getElementById("brushSize").value = args[1];
+        const brushInput = document.getElementById("brushSize");
+        brushInput.value = args[1];
+        brushInput.dispatchEvent(new Event("input"));
         log("Brush = " + args[1]);
+      } else {
+        log("Usage: brush <number>");
       }
       break;
 
@@ -2992,6 +3042,8 @@ function runCommand(cmd) {
     case "load":
       if (args[1]) {
         loadPatternFromFile(args[1]);
+      } else {
+        log("Usage: load <filename.rle>");
       }
       break;
 
