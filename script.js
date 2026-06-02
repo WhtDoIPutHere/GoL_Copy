@@ -1,11 +1,29 @@
 // Global variables for managing the pattern library state
-let currentTab = "all"; // Current active tab: "all", "favorites", or "recent"
+let currentTab = "all"; // Current active tab: "all", "favorites", "recent", or "custom"
 let patterns = []; // Array of all loaded patterns
 let filtered = []; // Filtered patterns based on search and tab
 let currentPage = 1; // Current page for pagination
 const pageSize = 50; // Number of patterns per page
 let sortKey = null; // Current sort column: "Name", "Description", "Rule", "Cells", "BBox"
 let sortDir = 0; // Sort direction: 0 = no sort, 1 = ascending, -1 = descending
+
+function getCustomPatterns() {
+  return JSON.parse(localStorage.getItem("customPatterns") || "[]");
+}
+
+function saveCustomPatterns(list) {
+  localStorage.setItem("customPatterns", JSON.stringify(list));
+}
+
+function addCustomPattern(pattern) {
+  const list = getCustomPatterns();
+  list.unshift(pattern);
+  saveCustomPatterns(list);
+}
+
+function getAllPatterns() {
+  return [...patterns, ...getCustomPatterns()];
+}
 
 // Retrieve favorite patterns from localStorage
 function getFavorites() {
@@ -60,6 +78,12 @@ function setTab(tab) {
   currentTab = tab;
   currentPage = 1;
   applyFilter();
+
+  const tabs = ["tab-all", "tab-recent", "tab-favorites", "tab-custom"];
+  for (const id of tabs) {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle("active", id === `tab-${tab}`);
+  }
 }
 
 // Load patterns from JSON and initialize the app
@@ -67,8 +91,7 @@ fetch("patterns.json")
   .then(res => res.json())
   .then(data => {
     patterns = data;
-    filtered = data;
-    render();
+    setTab(currentTab);
   });
 
 // Listen for search input changes
@@ -80,16 +103,16 @@ document.getElementById("search").addEventListener("input", () => {
 // Apply search filter and tab selection to patterns
 function applyFilter() {
   const q = document.getElementById("search").value.toLowerCase();
-  let base = patterns;
+  let base = getAllPatterns();
 
-  if (currentTab === "favorites") {
+  if (currentTab === "custom") {
+    base = getCustomPatterns();
+  } else if (currentTab === "favorites") {
     const favs = getFavorites();
-    base = patterns.filter(p => favs.includes(p["Pattern File"]));
-  }
-
-  if (currentTab === "recent") {
+    base = getAllPatterns().filter(p => favs.includes(p["Pattern File"]));
+  } else if (currentTab === "recent") {
     const rec = getRecent();
-    base = rec.map(f => patterns.find(p => p["Pattern File"] === f)).filter(Boolean);
+    base = rec.map(id => getAllPatterns().find(p => p["Pattern File"] === id)).filter(Boolean);
   }
 
   filtered = base.filter(p =>
@@ -167,7 +190,7 @@ function updateSortIndicators() {
 }
 
 // Render the pattern table with pagination
-function render() {
+async function render() {
   const body = document.getElementById("tableBody");
   body.innerHTML = "";
 
@@ -177,25 +200,32 @@ function render() {
   const pageItems = filtered.slice(start, start + pageSize);
 
   for (let p of pageItems) {
+    const fileId = p["Pattern File"];
+    const isCustom = fileId && fileId.startsWith("custom:");
+    const link = isCustom ? `gol.html?custom=${encodeURIComponent(fileId.slice(7))}` : `gol.html?file=${encodeURIComponent(fileId)}`;
+
     const row = document.createElement("tr");
 
     row.innerHTML = `
       <td><canvas width="70" height="50" style="border: 1px solid #333;"></canvas></td>
       <td>
-        <span onclick="toggleFavorite('${p["Pattern File"]}')"
+        <span onclick="toggleFavorite('${fileId}')"
               style="cursor:pointer;">
-          ${isFavorite(p["Pattern File"]) ? "⭐" : "☆"}
+          ${isFavorite(fileId) ? "⭐" : "☆"}
         </span>
       </td>
       <td>
-        <a href="gol.html?file=${encodeURIComponent(p["Pattern File"])}"
-           onclick="addRecent('${p["Pattern File"]}')"
+        <a href="${link}"
+           onclick="addRecent('${fileId}')"
            style="color:#8ecae6; text-decoration: underline;">
           ${p.Name || ""}
         </a>
       </td>
       <td class="desc" title="${p.Description || " "}">
         ${p.Description || " "}
+      </td>
+      <td class="rle">
+        <a href="${isCustom ? `rle.html?custom=${encodeURIComponent(fileId.slice(7))}` : `rle.html?file=${encodeURIComponent(fileId)}`}" class="rle-link">View</a>
       </td>
       <td><span class="rule">${p.Rule || ""}</span></td>
       <td class="num">${p.Cells || ""}</td>
@@ -206,7 +236,7 @@ function render() {
     
     // Render preview after adding to DOM
     const canvas = row.querySelector('canvas');
-    renderPreview(canvas, p["Pattern File"]);
+    renderPreview(canvas, p);
   }
 
   renderPagination();
@@ -283,15 +313,21 @@ function parseRLE(rle) {
 }
 
 // Render a pattern preview on a canvas
-async function renderPreview(canvas, patternFile) {
+async function renderPreview(canvas, pattern) {
   try {
-    const response = await fetch(`patterns/${patternFile}`);
-    if (!response.ok) return;
-    
-    const rleText = await response.text();
-    const cells = parseRLE(rleText);
-    
-    if (cells.length === 0) return;
+    let cells = null;
+
+    if (pattern.cells) {
+      cells = pattern.cells;
+    } else {
+      const response = await fetch(`patterns/${pattern["Pattern File"]}`);
+      if (!response.ok) return;
+      
+      const rleText = await response.text();
+      cells = parseRLE(rleText);
+    }
+
+    if (!cells || cells.length === 0) return;
     
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);

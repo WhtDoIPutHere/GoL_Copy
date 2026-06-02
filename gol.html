@@ -302,7 +302,7 @@
     <button id="stepBtn" onclick="doStep()">Step</button>
     <button id="resetViewBtn" onclick="resetView()">Reset View</button>
     <button id="dataBtn" onclick="toggleDataPanel()">Data</button>
-    <button id="wallToroidBtn" onclick="setWallToroid()">Wall/Toroid</button>
+    <button id="wallBtn" onclick="toggleWall()">Wall</button>
     <button onclick="clearGrid()">Clear</button>
   </div>
 
@@ -336,7 +336,7 @@
         <div class="shortcut-item"><span>X</span> <span>Step Generation</span></div>
         <div class="shortcut-item"><span>0</span> <span>Reset View</span></div>
         <div class="shortcut-item"><span>Ctrl + D</span> <span>Toggle Data Panel</span></div>
-        <div class="shortcut-item"><span>Ctrl + T</span> <span>Set Wall/Toroid</span></div>
+        <div class="shortcut-item"><span>Ctrl + T</span> <span>Toggle Wall</span></div>
         <div class="shortcut-item"><span>Delete/Backspace</span> <span>Clear Grid</span></div>
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
@@ -372,6 +372,8 @@
       </div>
     </div>
     
+    <button onclick="saveGridToLibrary()" style="background: #33aa33;">Save Grid</button>
+    <button onclick="saveSelectionToLibrary()" style="background: #33aa33;">Save Selection</button>
     <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
     <button onclick="window.open('https://copy.sh/life/examples/','_blank')" style="background: #445;">RLE Library</button>
     <button onclick="window.open('index.html','_blank')" style="background:#445;">Pattern Database</button>
@@ -573,7 +575,6 @@ let selectedCells = new Set(); // Current selected cell keys
 let clipboardHistory = []; // Last copied/cut shapes
 
 let wallRegions = new Set(); // Set of wall cell coordinates as strings "x,y"
-let toroidRegions = new Map(); // Map of toroid region IDs to their bounds {x1,y1,x2,y2}
 
 function getSnappedMirrorLineEnd(start, current) {
   const dx = current[0] - start[0];
@@ -607,10 +608,14 @@ if (!window.PATTERN_DATA) {
 }
 
 async function loadPatternFromURL() {
-  // Check if there's a file parameter in the URL
   const urlParams = new URLSearchParams(window.location.search);
+  const customId = urlParams.get('custom');
+  if (customId) {
+    await loadPatternFromCustom(customId);
+    return;
+  }
+
   const fileName = urlParams.get('file');
-  
   if (!fileName) {
     return; // No file parameter, nothing to load
   }
@@ -662,6 +667,45 @@ async function loadPatternFromURL() {
     console.error("Error loading pattern from URL:", e);
     alert("Error loading pattern from URL: " + e.message);
   }
+}
+
+async function loadPatternFromCustom(customId) {
+  const list = getCustomPatterns();
+  const entry = list.find(p => p.id === customId || p["Pattern File"] === `custom:${customId}`);
+  if (!entry) {
+    alert("Custom pattern not found.");
+    return;
+  }
+
+  const cells = entry.cells || [];
+  if (!cells.length) {
+    alert("Custom pattern is empty.");
+    return;
+  }
+
+  grid.clear();
+  cellAges.clear();
+  generation = 0;
+  populationHistory = [];
+  updateStats();
+  updateGraphStats();
+
+  for (let [dx, dy] of cells) {
+    const k = key(dx, dy);
+    grid.add(k);
+    cellAges.set(k, 0);
+  }
+
+  fitPatternToScreen(cells);
+  log(`Loaded custom pattern: ${entry.Name || entry.id} (${cells.length} cells)`, "action");
+  log("Auto fit shape to screen", "system");
+
+  updateGridButton();
+  updateFullCellButton();
+  updateEraseButton();
+  updateColorButton();
+  updateHeatmapButton();
+  updateStats();
 }
 
 async function loadPatternFromFile(fileName) {
@@ -1181,23 +1225,6 @@ function draw(){
     let sy=y*cellSize+offsetY;
     if(sx>-cellSize && sy>-cellSize && sx<canvas.width && sy<canvas.height){
       ctx.fillRect(sx, sy, cellSize, cellSize);
-      ctx.strokeRect(sx, sy, cellSize, cellSize);
-    }
-  }
-  ctx.restore();
-
-  // Draw toroid regions
-  ctx.save();
-  ctx.strokeStyle = "cyan";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([4, 4]);
-  for(let [id, bounds] of toroidRegions){
-    const sx = bounds.x1 * cellSize + offsetX;
-    const sy = bounds.y1 * cellSize + offsetY;
-    const sw = bounds.width * cellSize;
-    const sh = bounds.height * cellSize;
-    if(sx + sw > 0 && sy + sh > 0 && sx < canvas.width && sy < canvas.height){
-      ctx.strokeRect(sx, sy, sw, sh);
     }
   }
   ctx.restore();
@@ -1358,23 +1385,45 @@ function getNeighbors(x,y){
   return n;
 }
 
-function getToroidNeighbors(x,y, bounds){
-  let n=0;
-  for(let dx=-1;dx<=1;dx++){
-    for(let dy=-1;dy<=1;dy++){
-      if(dx||dy){
-        let nx = x + dx;
-        let ny = y + dy;
-        // Wrap around toroid boundaries
-        if(nx < bounds.x1) nx = bounds.x2;
-        else if(nx > bounds.x2) nx = bounds.x1;
-        if(ny < bounds.y1) ny = bounds.y2;
-        else if(ny > bounds.y2) ny = bounds.y1;
-        if(grid.has(key(nx,ny))) n++;
+function removeWallTouchedBlobs(cellSet){
+  const visited = new Set();
+  const toRemove = new Set();
+
+  for(const start of cellSet){
+    if(visited.has(start)) continue;
+    const stack = [start];
+    const component = [];
+    let touchesWall = false;
+    visited.add(start);
+
+    while(stack.length){
+      const cell = stack.pop();
+      component.push(cell);
+      const [cx, cy] = parse(cell);
+
+      for(let dx=-1;dx<=1;dx++){
+        for(let dy=-1;dy<=1;dy++){
+          if(dx===0 && dy===0) continue;
+          const adjacent = key(cx+dx, cy+dy);
+          if(wallRegions.has(adjacent)) touchesWall = true;
+          if(cellSet.has(adjacent) && !visited.has(adjacent)){
+            visited.add(adjacent);
+            stack.push(adjacent);
+          }
+        }
+      }
+    }
+
+    if(touchesWall){
+      for(const cell of component){
+        toRemove.add(cell);
       }
     }
   }
-  return n;
+
+  for(const cell of toRemove){
+    cellSet.delete(cell);
+  }
 }
 
 function recordPopulationSnapshot(){
@@ -1404,7 +1453,7 @@ function step(){
   for(let k of check){
     let [x,y]=parse(k);
     
-    // Check if cell touches a wall - if so, it dies
+      // Check if cell touches a wall - if so, it dies
     let touchesWall = false;
     for(let dx=-1;dx<=1;dx++){
       for(let dy=-1;dy<=1;dy++){
@@ -1415,17 +1464,8 @@ function step(){
       }
     }
     if(touchesWall) continue; // Cell dies if it touches a wall
-    
-    // Check if cell is in a toroid region
-    let toroidBounds = null;
-    for(let [id, bounds] of toroidRegions){
-      if(x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2){
-        toroidBounds = bounds;
-        break;
-      }
-    }
-    
-    let n = toroidBounds ? getToroidNeighbors(x,y, toroidBounds) : getNeighbors(x,y);
+
+    let n = getNeighbors(x,y);
     let alive=grid.has(k);
 
     // Use customizable rules (birthSet / survivalSet)
@@ -1434,6 +1474,7 @@ function step(){
     }
   }
 
+  removeWallTouchedBlobs(newGrid);
   grid=newGrid;
 
   // Update cell ages
@@ -1730,7 +1771,6 @@ function clearGrid(){
   populationHistory = [];
   cellAges.clear();
   wallRegions.clear();
-  toroidRegions.clear();
   updateButton();
   updateStats();
   
@@ -1761,6 +1801,78 @@ function getBoundsFromSet(cellSet) {
     y2 = Math.max(y2, y);
   }
   return { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+}
+
+function getCustomPatterns() {
+  return JSON.parse(localStorage.getItem('customPatterns') || '[]');
+}
+
+function saveCustomPatterns(list) {
+  localStorage.setItem('customPatterns', JSON.stringify(list));
+}
+
+function getCellsForWholeGrid() {
+  if (grid.size === 0) return [];
+  const bounds = getBoundsFromSet(grid);
+  return Array.from(grid).map(k => {
+    const [x, y] = parse(k);
+    return [x - bounds.x1, y - bounds.y1];
+  });
+}
+
+function saveCustomPatternToLibrary(cells, width, height, name, description) {
+  const list = getCustomPatterns();
+  const uid = `${Date.now()}-${Math.floor(Math.random() * 9999)}`;
+  const fileId = `custom:${uid}`;
+  const rule = `B${Array.from(birthSet).sort((a, b) => a - b).join('')}/S${Array.from(survivalSet).sort((a, b) => a - b).join('')}`;
+
+  const entry = {
+    id: uid,
+    'Pattern File': fileId,
+    Name: name,
+    Description: description,
+    Rule: rule,
+    Cells: String(cells.length),
+    'Bounding Box': `${width}x${height}`,
+    cells
+  };
+
+  list.unshift(entry);
+  saveCustomPatterns(list);
+
+  alert(`Saved '${name}' to custom library.`);
+}
+
+function saveGridToLibrary() {
+  if (grid.size === 0) {
+    log('Nothing to save: grid is empty.', 'warn');
+    return;
+  }
+
+  const cells = getCellsForWholeGrid();
+  const bounds = getBoundsFromSet(grid);
+  const name = prompt('Pattern name for your grid:', 'Custom grid');
+  if (!name) return;
+
+  saveCustomPatternToLibrary(cells, bounds.width, bounds.height, name, `Saved from full grid (${cells.length} cells)`);
+}
+
+function saveSelectionToLibrary() {
+  if (!selectionRect) {
+    log('No selection to save. Select an area first.', 'warn');
+    return;
+  }
+
+  const cells = getCellsInSelection();
+  if (!cells || cells.length === 0) {
+    log('Selected area contains no live cells.', 'warn');
+    return;
+  }
+
+  const name = prompt('Pattern name for selected area:', 'Custom selection');
+  if (!name) return;
+
+  saveCustomPatternToLibrary(cells, selectionRect.width, selectionRect.height, name, `Saved from selection (${cells.length} cells)`);
 }
 
 function updateDataPanel(){
@@ -1802,53 +1914,31 @@ function toggleDataPanel(){
   }
 }
 
-function setWallToroid(){
+function toggleWall(){
   if(!selectionRect){
     log("No selection - select an area first", "warn");
     return;
   }
 
-  // Check current state of the selection area
   let hasWall = false;
-  let hasToroid = false;
-  let toroidId = null;
   for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
     for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
-      const k = key(x,y);
-      if(wallRegions.has(k)) hasWall = true;
-      for(let [id, bounds] of toroidRegions){
-        if(x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2){
-          hasToroid = true;
-          toroidId = id;
-          break;
-        }
+      if(wallRegions.has(key(x,y))){
+        hasWall = true;
+        break;
       }
     }
+    if(hasWall) break;
   }
 
-  // Cycle through states: none -> wall -> toroid -> none
   if(hasWall){
-    // Remove wall, set as toroid
     for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
       for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
-        const k = key(x,y);
-        wallRegions.delete(k);
+        wallRegions.delete(key(x,y));
       }
     }
-    // Add as toroid
-    const id = Date.now(); // Simple unique ID
-    toroidRegions.set(id, {
-      x1: selectionRect.x1, y1: selectionRect.y1,
-      x2: selectionRect.x2, y2: selectionRect.y2,
-      width: selectionRect.width, height: selectionRect.height
-    });
-    log(`Set ${selectionRect.width}×${selectionRect.height} area as toroid`, "action");
-  } else if(hasToroid){
-    // Remove toroid
-    toroidRegions.delete(toroidId);
-    log(`Removed toroid from ${selectionRect.width}×${selectionRect.height} area`, "action");
+    log(`Removed ${selectionRect.width}×${selectionRect.height} wall area`, "action");
   } else {
-    // Set as wall
     for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
       for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
         wallRegions.add(key(x,y));
@@ -2386,7 +2476,7 @@ if (e.ctrlKey && e.key.toLowerCase() === "d") {
 
   if (e.ctrlKey && e.key.toLowerCase() === "t") {
     e.preventDefault();
-    setWallToroid();
+    toggleWall();
     return;
   }
 
@@ -2774,6 +2864,10 @@ function paintCell(x, y, mode, brush, erase) {
       grid.delete(cell);
       cellAges.delete(cell);
       return;
+    }
+
+    if (wallRegions.has(cell)) {
+      return; // Cannot draw into wall cells
     }
 
     if (!grid.has(cell)) {

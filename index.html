@@ -103,14 +103,28 @@
   /* Flexible width for description column */
   th:nth-child(4), td:nth-child(4) { width: auto; }
 
+  /* Fixed width for RLE column */
+  th:nth-child(5), td:nth-child(5) { width: 120px; }
+
   /* Fixed width for rule column */
-  th:nth-child(5), td:nth-child(5) { width: 100px; }
+  th:nth-child(6), td:nth-child(6) { width: 100px; }
 
   /* Fixed width for cells column */
-  th:nth-child(6), td:nth-child(6) { width: 80px; text-align: left;}
+  th:nth-child(7), td:nth-child(7) { width: 80px; text-align: left;}
 
   /* Fixed width for bounding box column */
-  th:nth-child(7), td:nth-child(7) { width: 120px; }
+  th:nth-child(8), td:nth-child(8) { width: 120px; }
+
+  /* RLE link styling */
+  td.rle {
+    text-align: center;
+  }
+  td.rle a {
+    color: #8ecae6;
+    text-decoration: underline;
+    font-family: monospace;
+    font-size: 12px;
+  }
 
   /* Small text styling */
   .small {
@@ -170,7 +184,8 @@
   /* Active tab button styling */
   #tab-all.active,
   #tab-recent.active,
-  #tab-favorites.active {
+  #tab-favorites.active,
+  #tab-custom.active {
     background: #555;
   }
 
@@ -184,6 +199,7 @@
   <button onclick="setTab('all')" id="tab-all">All</button>
   <button onclick="setTab('recent')" id="tab-recent">Recent</button>
   <button onclick="setTab('favorites')" id="tab-favorites">Favorites</button>
+  <button onclick="setTab('custom')" id="tab-custom">Custom</button>
   <button onclick="window.location.href='gol.html'">Go to Game of Life</button>
 </header>
 
@@ -195,6 +211,7 @@
         <th>★</th>
         <th onclick="sortBy('Name')" id="h-Name">Name</th>
         <th onclick="sortBy('Description')" id="h-Description">Description</th>
+        <th>RLE</th>
         <th onclick="sortBy('Rule')" id="h-Rule">Rule</th>
         <th onclick="sortBy('Cells')" id="h-Cells">Cells</th>
         <th onclick="sortBy('BBox')" id="h-BBox">Bounding Box</th>

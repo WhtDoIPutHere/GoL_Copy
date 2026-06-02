@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>RLE Viewer</title>
+<style>
+  body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #111;
+    color: #eee;
+  }
+  header {
+    padding: 18px 20px;
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  button {
+    background: #222;
+    color: white;
+    border: 1px solid #333;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #333;
+  }
+  .container {
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 0 20px 40px;
+  }
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .meta .item {
+    background: #161616;
+    border: 1px solid #222;
+    padding: 14px;
+    border-radius: 6px;
+    line-height: 1.5;
+  }
+  .meta .label {
+    color: #8ecae6;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .meta .value {
+    color: #ddd;
+    font-size: 13px;
+    word-break: break-word;
+  }
+  pre {
+    background: #141414;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 18px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: calc(100vh - 220px);
+    color: #dcdcdc;
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+    font-size: 13px;
+  }
+  .note {
+    color: #aaa;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h3>RLE Viewer</h3>
+  <div>
+    <button onclick="window.location.href='index.html'">Back to Library</button>
+  </div>
+</header>
+<div class="container">
+  <div class="meta">
+    <div class="item">
+      <span class="label">Pattern</span>
+      <span class="value" id="patternName">Loading...</span>
+    </div>
+    <div class="item">
+      <span class="label">Type</span>
+      <span class="value" id="patternType">-</span>
+    </div>
+    <div class="item">
+      <span class="label">Rule</span>
+      <span class="value" id="patternRule">-</span>
+    </div>
+    <div class="item">
+      <span class="label">Cells</span>
+      <span class="value" id="patternCells">-</span>
+    </div>
+    <div class="item">
+      <span class="label">Bounding Box</span>
+      <span class="value" id="patternBBox">-</span>
+    </div>
+  </div>
+  <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 10px;">
+    <button id="copyBtn" onclick="copyRLE()" style="padding: 10px 14px;">Copy RLE</button>
+    <span id="copyStatus" style="color: #8ecae6; font-size: 12px; display: none;">Copied!</span>
+  </div>
+  <pre id="rleText">Loading RLE…</pre>
+  <div class="note">If the pattern is custom, this page generates RLE from the saved cell data.</div>
+</div>
+<script>
+function getCustomPatterns() {
+  return JSON.parse(localStorage.getItem('customPatterns') || '[]');
+}
+function getQueryParam(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+function copyRLE() {
+  const text = document.getElementById('rleText').textContent;
+  if (!text || text === 'Loading RLE…') {
+    alert('No RLE text to copy yet.');
+    return;
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    const status = document.getElementById('copyStatus');
+    status.style.display = 'inline';
+    setTimeout(() => {
+      status.style.display = 'none';
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+  });
+}
+function formatRLE(pattern) {
+  const cells = pattern.cells || [];
+  if (!cells.length) return '';
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of cells) {
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+
+  const width = maxX - minX + 1;
+  const height = maxY - minY + 1;
+  const rows = Array.from({ length: height }, () => new Set());
+
+  for (const [x, y] of cells) {
+    rows[y - minY].add(x - minX);
+  }
+
+  let rle = '';
+  for (let y = 0; y < height; y++) {
+    let runType = null;
+    let runLen = 0;
+    const row = rows[y];
+
+    const flush = () => {
+      if (runLen === 0) return;
+      rle += (runLen === 1 ? '' : runLen) + runType;
+      runLen = 0;
+    };
+
+    for (let x = 0; x < width; x++) {
+      const alive = row.has(x);
+      const type = alive ? 'o' : 'b';
+      if (type === runType) {
+        runLen++;
+      } else {
+        flush();
+        runType = type;
+        runLen = 1;
+      }
+    }
+    flush();
+    if (y < height - 1) rle += '$';
+  }
+
+  return `x = ${width}, y = ${height}, rule = ${pattern.Rule || 'B3/S23'}\n${rle}!`;
+}
+function showError(message) {
+  document.getElementById('patternName').textContent = 'Error';
+  document.getElementById('patternType').textContent = '—';
+  document.getElementById('rleText').textContent = message;
+}
+async function loadRLE() {
+  const customId = getQueryParam('custom');
+  const fileName = getQueryParam('file');
+  const textEl = document.getElementById('rleText');
+  const nameEl = document.getElementById('patternName');
+  const typeEl = document.getElementById('patternType');
+  const ruleEl = document.getElementById('patternRule');
+  const cellsEl = document.getElementById('patternCells');
+  const bboxEl = document.getElementById('patternBBox');
+
+  if (customId) {
+    const list = getCustomPatterns();
+    const entry = list.find(p => p.id === customId || p['Pattern File'] === `custom:${customId}`);
+    if (!entry) {
+      showError('Custom pattern not found.');
+      return;
+    }
+    nameEl.textContent = entry.Name || 'Custom pattern';
+    typeEl.textContent = 'Custom';
+    ruleEl.textContent = entry.Rule || 'B3/S23';
+    cellsEl.textContent = entry.Cells || (entry.cells ? entry.cells.length : '-');
+    bboxEl.textContent = entry['Bounding Box'] || '-';
+    textEl.textContent = formatRLE(entry);
+    return;
+  }
+
+  if (!fileName) {
+    showError('No pattern specified.');
+    return;
+  }
+
+  try {
+    const resp = await fetch(`patterns/${fileName}`);
+    if (!resp.ok) {
+      throw new Error(`Failed to load pattern: ${resp.status}`);
+    }
+    const raw = await resp.text();
+    nameEl.textContent = fileName;
+    typeEl.textContent = 'Built-in';
+    ruleEl.textContent = '-';
+    cellsEl.textContent = '-';
+    bboxEl.textContent = '-';
+    textEl.textContent = raw.trim() || '(empty file)';
+  } catch (err) {
+    showError(err.message);
+  }
+}
+loadRLE();
+</script>
+</body>
+</html>
