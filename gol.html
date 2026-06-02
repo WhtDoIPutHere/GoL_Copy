@@ -504,6 +504,7 @@
         </select>
         <button onclick="resetRules()" title="Reset rules to default B3/S23">Reset</button>
       </div>
+      <div style="font-size:12px; align-self:center;">Current rule: <span id="ruleString">B3/S23</span></div>
     </div>
   </div>
 </div>
@@ -755,16 +756,7 @@ function createSnapshot() {
 }
 
 // Restore the game state from a snapshot
-function restoreSnapshot(snapshot) {
-  grid = new Set(snapshot.grid);
-  cellAges = new Map(snapshot.cellAges);
-  generation = snapshot.generation;
-  populationHistory = [...snapshot.populationHistory];
-
-  running = false;
-  updateButton();
-  updateStats();
-}
+// (Actual restoreSnapshot is defined later once, after the rules UI functions.)
 
 // Calculate the bounding box of a pattern
 function getPatternBounds(pattern){
@@ -2174,13 +2166,17 @@ function onRuleCheckboxChange(type, n, checked){
   }
   updateRuleString();
 
-  log(`Rule updated → ${document.getElementById('ruleString').textContent}`, "action");
+  const ruleStringEl = document.getElementById('ruleString');
+  log(`Rule updated → ${ruleStringEl ? ruleStringEl.textContent : 'B?/?S?'}`, "action");
 }
 
 function updateRuleString(){
   const s = Array.from(survivalSet).sort((a,b)=>a-b).join('');
   const b = Array.from(birthSet).sort((a,b)=>a-b).join('');
-  document.getElementById('ruleString').textContent = `B${b}/S${s}`;
+  const ruleStringEl = document.getElementById('ruleString');
+  if (ruleStringEl) {
+    ruleStringEl.textContent = `B${b}/S${s}`;
+  }
 }
 
 function selectAll(which){
