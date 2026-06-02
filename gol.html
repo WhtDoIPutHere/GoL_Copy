@@ -251,6 +251,90 @@
     padding-left: 6px;
     z-index: 10000;
   }
+
+  /* Expandable graph modal */
+  #graphModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 5000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #graphModal.active {
+    display: flex;
+  }
+
+  #graphContainer {
+    background: rgba(17, 17, 17, 0.92);
+    border: 2px solid #00ff00;
+    border-radius: 6px;
+    padding: 20px;
+    width: 85%;
+    height: 85%;
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 30px rgba(0, 255, 0, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.5);
+  }
+
+  #graphHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #333;
+    color: #eee;
+  }
+
+  #graphHeader h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #00ff00;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  #graphCloseBtn {
+    background: #1a1a1a;
+    color: #00ff00;
+    border: 1px solid #00ff00;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+
+  #graphCloseBtn:hover {
+    background: #00ff00;
+    color: #111;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+  }
+
+  #expandedGraphCanvas {
+    flex: 1;
+    border: 1px solid #333;
+    border-radius: 4px;
+    background: #0a0a0a;
+  }
+
+  #graphCanvas {
+    cursor: pointer;
+    transition: filter 0.2s ease;
+  }
+
+  #graphCanvas:hover {
+    filter: brightness(1.2);
+  }
   </style>
 </head>
 <body>
@@ -508,6 +592,17 @@
       </div>
       <div style="font-size:12px; align-self:center;">Current rule: <span id="ruleString">B3/S23</span></div>
     </div>
+  </div>
+</div>
+
+<!-- Expandable graph modal -->
+<div id="graphModal">
+  <div id="graphContainer">
+    <div id="graphHeader">
+      <h2>Population History</h2>
+      <button id="graphCloseBtn" onclick="closeGraphModal()">Close</button>
+    </div>
+    <canvas id="expandedGraphCanvas"></canvas>
   </div>
 </div>
 
@@ -1290,36 +1385,7 @@ ctx.globalAlpha = 1;
   // Draw population graph
   const graphCanvas = document.getElementById("graphCanvas");
   const graphCtx = graphCanvas.getContext("2d");
-  graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
-
-  if (populationHistory.length > 1) {
-    const maxPop = Math.max(...populationHistory);
-const scaleY = maxPop > 0 ? graphCanvas.height / maxPop : 1;
-const stepX = graphCanvas.width / (populationHistory.length - 1);
-
-for (let i = 1; i < populationHistory.length; i++) {
-  const x1 = (i - 1) * stepX;
-  const y1 = graphCanvas.height - (populationHistory[i - 1] * scaleY);
-
-  const x2 = i * stepX;
-  const y2 = graphCanvas.height - (populationHistory[i] * scaleY);
-
-  // Determine slope direction
-  if (populationHistory[i] > populationHistory[i - 1]) {
-    graphCtx.strokeStyle = "lime";   // rising
-  } else if (populationHistory[i] < populationHistory[i - 1]) {
-    graphCtx.strokeStyle = "red";    // falling
-  } else {
-    graphCtx.strokeStyle = "lime";  // flat
-  }
-
-  graphCtx.beginPath();
-  graphCtx.moveTo(x1, y1);
-  graphCtx.lineTo(x2, y2);
-  graphCtx.stroke();
-}
-    updateGraphStats();
-  }
+  drawPopulationGraph(graphCanvas, graphCtx);
   
   const minimapCanvas = document.getElementById("minimapCanvas");
 const minimapCtx = minimapCanvas.getContext("2d");
@@ -1490,6 +1556,135 @@ function step(){
   if(populationHistory.length > 200) populationHistory.shift();
 }
 
+// Draw population graph on any canvas
+function drawPopulationGraph(graphCanvas, graphCtx) {
+  graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+  // Draw subtle background grid
+  graphCtx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  graphCtx.lineWidth = 1;
+  const gridSpacing = 20;
+  for (let i = 0; i < graphCanvas.width; i += gridSpacing) {
+    graphCtx.beginPath();
+    graphCtx.moveTo(i, 0);
+    graphCtx.lineTo(i, graphCanvas.height);
+    graphCtx.stroke();
+  }
+  for (let i = 0; i < graphCanvas.height; i += gridSpacing) {
+    graphCtx.beginPath();
+    graphCtx.moveTo(0, i);
+    graphCtx.lineTo(graphCanvas.width, i);
+    graphCtx.stroke();
+  }
+
+  if (populationHistory.length > 1) {
+    const maxPop = Math.max(...populationHistory);
+    const scaleY = maxPop > 0 ? graphCanvas.height / maxPop : 1;
+    const stepX = graphCanvas.width / (populationHistory.length - 1);
+
+    // Draw filled area under the curve
+    graphCtx.fillStyle = "rgba(0, 255, 0, 0.1)";
+    graphCtx.beginPath();
+    graphCtx.moveTo(0, graphCanvas.height);
+    for (let i = 0; i < populationHistory.length; i++) {
+      const x = i * stepX;
+      const y = graphCanvas.height - (populationHistory[i] * scaleY);
+      graphCtx.lineTo(x, y);
+    }
+    graphCtx.lineTo(graphCanvas.width, graphCanvas.height);
+    graphCtx.fill();
+
+    // Draw line with thickness
+    graphCtx.lineWidth = 2;
+    for (let i = 1; i < populationHistory.length; i++) {
+      const x1 = (i - 1) * stepX;
+      const y1 = graphCanvas.height - (populationHistory[i - 1] * scaleY);
+
+      const x2 = i * stepX;
+      const y2 = graphCanvas.height - (populationHistory[i] * scaleY);
+
+      // Determine slope direction
+      if (populationHistory[i] > populationHistory[i - 1]) {
+        graphCtx.strokeStyle = "#00ff00";   // rising - lime green
+      } else if (populationHistory[i] < populationHistory[i - 1]) {
+        graphCtx.strokeStyle = "#ff3333";    // falling - red
+      } else {
+        graphCtx.strokeStyle = "#00ff00";  // flat - lime
+      }
+
+      graphCtx.beginPath();
+      graphCtx.moveTo(x1, y1);
+      graphCtx.lineTo(x2, y2);
+      graphCtx.stroke();
+    }
+    updateGraphStats();
+  }
+}
+
+// Track if graph modal is open for continuous updates
+let graphModalOpen = false;
+
+// Open graph modal
+function openGraphModal() {
+  const modal = document.getElementById("graphModal");
+  modal.classList.add("active");
+  graphModalOpen = true;
+  
+  // Size the expanded canvas
+  const container = document.getElementById("graphContainer");
+  const expandedCanvas = document.getElementById("expandedGraphCanvas");
+  
+  // Set canvas size to fill container
+  expandedCanvas.width = container.clientWidth - 40;
+  expandedCanvas.height = container.clientHeight - 80;
+  
+  // Draw the graph on the expanded canvas
+  const ctx = expandedCanvas.getContext("2d");
+  drawPopulationGraph(expandedCanvas, ctx);
+}
+
+// Close graph modal
+function closeGraphModal() {
+  const modal = document.getElementById("graphModal");
+  modal.classList.remove("active");
+  graphModalOpen = false;
+}
+
+// Set up graph modal controls
+document.addEventListener("DOMContentLoaded", function() {
+  const graphCanvas = document.getElementById("graphCanvas");
+  if (graphCanvas) {
+    graphCanvas.addEventListener("click", openGraphModal);
+  }
+
+  // Close modal on Escape key
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") {
+      closeGraphModal();
+    }
+  });
+
+  // Close modal when clicking outside the container
+  const modal = document.getElementById("graphModal");
+  modal.addEventListener("click", function(e) {
+    if (e.target === modal) {
+      closeGraphModal();
+    }
+  });
+
+  // Redraw expanded graph on window resize
+  window.addEventListener("resize", function() {
+    if (modal.classList.contains("active")) {
+      const expandedCanvas = document.getElementById("expandedGraphCanvas");
+      const container = document.getElementById("graphContainer");
+      expandedCanvas.width = container.clientWidth - 40;
+      expandedCanvas.height = container.clientHeight - 80;
+      const ctx = expandedCanvas.getContext("2d");
+      drawPopulationGraph(expandedCanvas, ctx);
+    }
+  });
+});
+
 // Loop
 let lastTime=0;
 function loop(t){
@@ -1513,6 +1708,15 @@ function loop(t){
   }
 
   draw();
+
+  // Update expanded graph if modal is open
+  if (graphModalOpen) {
+    const expandedCanvas = document.getElementById("expandedGraphCanvas");
+    if (expandedCanvas && expandedCanvas.width > 0) {
+      const ctx = expandedCanvas.getContext("2d");
+      drawPopulationGraph(expandedCanvas, ctx);
+    }
+  }
 }
 requestAnimationFrame(loop);
 
