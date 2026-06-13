@@ -482,11 +482,16 @@
   <div class="settings-dropdown">
     <button id="settingsBtn" onclick="toggleSettingsPanel(event)" style="background:#445;">Settings</button>
     <div id="settingsPanel">
-      <label>
+        <label>
         <input type="checkbox" id="pauseOnInactiveCheckbox" onchange="togglePauseOnInactive(this.checked)">
         Pause when tab is inactive
       </label>
       <div class="settings-note">When enabled, the simulation automatically pauses while the browser tab is hidden and resumes when it becomes active again.</div>
+      <label>
+        <input type="checkbox" id="autoPauseStaticCheckbox" onchange="toggleAutoPauseWhenStatic(this.checked)">
+        Auto-pause when static for 10 generations
+      </label>
+      <div class="settings-note">When enabled, the simulation automatically pauses once no cells are born or die for 10 consecutive generations.</div>
     </div>
   </div>
 </div>
@@ -625,6 +630,8 @@ let offsetY = 0; // Vertical pan offset
 
 let running = false; // Whether simulation is running
 let pauseOnInactive = false; // Automatically pause when tab becomes inactive
+let autoPauseWhenStatic = false; // Automatically pause when grid is static for a while
+let staticGenerationCount = 0; // Consecutive generations with no births or deaths
 let pausedByInactivity = false; // Whether the pause was triggered by tab inactivity
 let grid = new Set(); // Set of living cell coordinates as strings "x,y"
 let generation = 0; // Current generation number
@@ -1499,6 +1506,14 @@ function recordPopulationSnapshot(){
   }
 }
 
+function areSetsEqual(a, b) {
+  if (a.size !== b.size) return false;
+  for (const item of a) {
+    if (!b.has(item)) return false;
+  }
+  return true;
+}
+
 // Advance the simulation by one generation using the current rules
 function step(){
   recordPopulationSnapshot();
@@ -1541,6 +1556,7 @@ function step(){
   }
 
   removeWallTouchedBlobs(newGrid);
+  const prevGrid = new Set(grid);
   grid=newGrid;
 
   // Update cell ages
@@ -1550,10 +1566,19 @@ function step(){
   }
   cellAges = newAges;
 
+  const isStatic = areSetsEqual(prevGrid, grid);
+  staticGenerationCount = isStatic ? staticGenerationCount + 1 : 0;
+
   generation++;
   updateStats();
   populationHistory.push(grid.size);
   if(populationHistory.length > 200) populationHistory.shift();
+
+  if (running && autoPauseWhenStatic && staticGenerationCount >= 10) {
+    running = false;
+    updateButton();
+    log("Auto-paused: no cells born or died for 10 generations", "action");
+  }
 }
 
 // Draw population graph on any canvas
@@ -1709,6 +1734,11 @@ function loop(t){
 
   draw();
 
+  // Keep data panel contents fresh while visible
+  if (showDataPanel) {
+    updateDataPanel();
+  }
+
   // Update expanded graph if modal is open
   if (graphModalOpen) {
     const expandedCanvas = document.getElementById("expandedGraphCanvas");
@@ -1762,6 +1792,13 @@ function togglePauseOnInactive(enabled){
   const checkbox = document.getElementById("pauseOnInactiveCheckbox");
   if (checkbox) checkbox.checked = enabled;
   log(enabled ? "Pause on inactive tab enabled" : "Pause on inactive tab disabled", "action");
+}
+
+function toggleAutoPauseWhenStatic(enabled){
+  autoPauseWhenStatic = enabled;
+  const checkbox = document.getElementById("autoPauseStaticCheckbox");
+  if (checkbox) checkbox.checked = enabled;
+  log(enabled ? "Auto-pause on static graph enabled" : "Auto-pause on static graph disabled", "action");
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -1972,6 +2009,7 @@ function clearGrid(){
   grid.clear();
   generation = 0;
   running = false;
+  staticGenerationCount = 0;
   populationHistory = [];
   cellAges.clear();
   wallRegions.clear();
@@ -2567,6 +2605,7 @@ function restoreSnapshot(snapshot) {
   cellAges = new Map(snapshot.cellAges);
   generation = snapshot.generation;
   populationHistory = [...snapshot.populationHistory];
+  staticGenerationCount = 0;
 
   running = false;
   updateButton();
