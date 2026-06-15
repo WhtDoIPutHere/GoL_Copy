@@ -260,9 +260,9 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
-    z-index: 5000;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(3px);
+    z-index: 11000;
     align-items: center;
     justify-content: center;
   }
@@ -272,23 +272,23 @@
   }
 
   #graphContainer {
-    background: rgba(17, 17, 17, 0.92);
-    border: 2px solid #00ff00;
-    border-radius: 6px;
-    padding: 20px;
-    width: 85%;
-    height: 85%;
+    background: rgba(12, 12, 12, 0.98);
+    border: 1px solid #444;
+    border-radius: 12px;
+    padding: 18px;
+    width: 90%;
+    height: 88%;
     max-width: 1400px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 0 30px rgba(0, 255, 0, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
   }
 
   #graphHeader {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
     padding-bottom: 12px;
     border-bottom: 1px solid #333;
     color: #eee;
@@ -303,11 +303,11 @@
   }
 
   #graphCloseBtn {
-    background: #1a1a1a;
+    background: #101010;
     color: #00ff00;
     border: 1px solid #00ff00;
     padding: 8px 16px;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
@@ -320,11 +320,111 @@
     box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
   }
 
-  #expandedGraphCanvas {
+  #expandedGraphPlayBtn {
+    border: 1px solid #00ff00;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #101010;
+    color: #00ff00;
+    transition: all 0.15s ease;
+  }
+
+  #expandedGraphPlayBtn.paused {
+    background: #aa3333;
+    color: #111;
+    border-color: #aa3333;
+  }
+
+  #expandedGraphPlayBtn.running {
+    background: #33aa33;
+    color: #111;
+    border-color: #33aa33;
+  }
+
+  #graphControls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  #graphControls label {
+    color: #ccc;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  #graphControls input[type="range"] {
     flex: 1;
+    width: 100%;
+    min-width: 320px;
+  }
+
+  #graphScrollWrapper {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
     border: 1px solid #333;
-    border-radius: 4px;
-    background: #0a0a0a;
+    border-radius: 8px;
+    background: #080808;
+  }
+
+  #expandedGraphCanvas {
+    display: block;
+    height: 100%;
+    background: #050505;
+  }
+
+  #graphInfoPanel {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .graphInfoBlock {
+    background: rgba(0, 0, 0, 0.88);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .graphInfoBlock h3 {
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+    color: #0f0;
+    letter-spacing: 0.4px;
+  }
+
+  .graphInfoLine {
+    margin: 4px 0;
+    font-size: 0.92rem;
+    color: #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .graphJumpLink {
+    color: #70b4ff;
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 600;
+  }
+
+  .graphJumpLink:hover {
+    color: #8fff8f;
+  }
+
+  .graphMetricLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #aaa;
   }
 
   #graphCanvas {
@@ -487,11 +587,15 @@
         Pause when tab is inactive
       </label>
       <div class="settings-note">When enabled, the simulation automatically pauses while the browser tab is hidden and resumes when it becomes active again.</div>
-      <label>
-        <input type="checkbox" id="autoPauseStaticCheckbox" onchange="toggleAutoPauseWhenStatic(this.checked)">
-        Auto-pause when static for 10 generations
+      <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span style="display:inline-flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="autoPauseStaticCheckbox" onchange="toggleAutoPauseWhenStatic(this.checked)">
+          Auto-pause when stable for
+        </span>
+        <input type="number" id="autoPauseStaticThreshold" min="1" placeholder="10" style="width:52px; padding:3px; font-size:12px;">
+        <span>generations</span>
       </label>
-      <div class="settings-note">When enabled, the simulation automatically pauses once no cells are born or die for 10 consecutive generations.</div>
+      <div class="settings-note">When enabled, the simulation auto-pauses after no births or deaths, or when the total cell count stays unchanged for the entered number of generations. Leave blank for 10.</div>
     </div>
   </div>
 </div>
@@ -605,9 +709,19 @@
   <div id="graphContainer">
     <div id="graphHeader">
       <h2>Population History</h2>
-      <button id="graphCloseBtn" onclick="closeGraphModal()">Close</button>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button id="expandedGraphPlayBtn" onclick="togglePlay()">Paused</button>
+        <button id="graphCloseBtn" onclick="closeGraphModal()">Close</button>
+      </div>
     </div>
-    <canvas id="expandedGraphCanvas"></canvas>
+    <div id="graphControls">
+      <label for="expandedGraphSpeed">Speed</label>
+      <input id="expandedGraphSpeed" type="range" min="1" max="120" value="10">
+    </div>
+    <div id="graphScrollWrapper">
+      <canvas id="expandedGraphCanvas"></canvas>
+    </div>
+    <div id="graphInfoPanel"></div>
   </div>
 </div>
 
@@ -630,8 +744,9 @@ let offsetY = 0; // Vertical pan offset
 
 let running = false; // Whether simulation is running
 let pauseOnInactive = false; // Automatically pause when tab becomes inactive
-let autoPauseWhenStatic = false; // Automatically pause when grid is static for a while
+let autoPauseWhenStatic = false; // Automatically pause when grid is stable for a while
 let staticGenerationCount = 0; // Consecutive generations with no births or deaths
+let samePopulationCount = 0; // Consecutive generations with unchanged population
 let pausedByInactivity = false; // Whether the pause was triggered by tab inactivity
 let grid = new Set(); // Set of living cell coordinates as strings "x,y"
 let generation = 0; // Current generation number
@@ -859,6 +974,17 @@ function toggleUI() {
   
   const btn = document.getElementById("collapseBtn");
   btn.textContent = ui.classList.contains("hidden") ? "❯" : "☰";
+
+  // Also hide/show terminal and its input when toggling the UI
+  const term = document.getElementById("terminal");
+  const termInput = document.getElementById("terminalInput");
+  if (ui.classList.contains("hidden")) {
+    if (term) term.style.display = "none";
+    if (termInput) termInput.style.display = "none";
+  } else {
+    if (term) term.style.display = "";
+    if (termInput) termInput.style.display = "";
+  }
 }
 
 // Utility functions for coordinate handling
@@ -1502,7 +1628,7 @@ function removeWallTouchedBlobs(cellSet){
 function recordPopulationSnapshot(){
   if (populationHistory.length === 0 || populationHistory[populationHistory.length - 1] !== grid.size){
     populationHistory.push(grid.size);
-    if (populationHistory.length > 200) populationHistory.shift();
+    if (populationHistory.length > 2000) populationHistory.shift();
   }
 }
 
@@ -1566,18 +1692,26 @@ function step(){
   }
   cellAges = newAges;
 
+  const currentPopulation = grid.size;
   const isStatic = areSetsEqual(prevGrid, grid);
   staticGenerationCount = isStatic ? staticGenerationCount + 1 : 0;
+  samePopulationCount = (populationHistory.length > 0 && populationHistory[populationHistory.length - 1] === currentPopulation)
+    ? samePopulationCount + 1
+    : 0;
 
   generation++;
   updateStats();
-  populationHistory.push(grid.size);
-  if(populationHistory.length > 200) populationHistory.shift();
+  populationHistory.push(currentPopulation);
+  if(populationHistory.length > 2000) populationHistory.shift();
 
-  if (running && autoPauseWhenStatic && staticGenerationCount >= 10) {
+  const thresholdInput = document.getElementById("autoPauseStaticThreshold");
+  const threshold = thresholdInput && thresholdInput.value ? parseInt(thresholdInput.value, 10) : 10;
+  const effectiveThreshold = Number.isInteger(threshold) && threshold > 0 ? threshold : 10;
+
+  if (running && autoPauseWhenStatic && (staticGenerationCount >= effectiveThreshold || samePopulationCount >= effectiveThreshold)) {
     running = false;
     updateButton();
-    log("Auto-paused: no cells born or died for 10 generations", "action");
+    log(`Auto-paused: stable for ${effectiveThreshold} generations`, "action");
   }
 }
 
@@ -1624,17 +1758,15 @@ function drawPopulationGraph(graphCanvas, graphCtx) {
     for (let i = 1; i < populationHistory.length; i++) {
       const x1 = (i - 1) * stepX;
       const y1 = graphCanvas.height - (populationHistory[i - 1] * scaleY);
-
       const x2 = i * stepX;
       const y2 = graphCanvas.height - (populationHistory[i] * scaleY);
 
-      // Determine slope direction
       if (populationHistory[i] > populationHistory[i - 1]) {
-        graphCtx.strokeStyle = "#00ff00";   // rising - lime green
+        graphCtx.strokeStyle = "#00ff00";
       } else if (populationHistory[i] < populationHistory[i - 1]) {
-        graphCtx.strokeStyle = "#ff3333";    // falling - red
+        graphCtx.strokeStyle = "#ff3333";
       } else {
-        graphCtx.strokeStyle = "#00ff00";  // flat - lime
+        graphCtx.strokeStyle = "#00ff00";
       }
 
       graphCtx.beginPath();
@@ -1646,26 +1778,253 @@ function drawPopulationGraph(graphCanvas, graphCtx) {
   }
 }
 
+function drawExpandedPopulationGraph(graphCanvas, graphCtx) {
+  graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+  // Draw subtle background grid
+  graphCtx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  graphCtx.lineWidth = 1;
+  const gridSpacing = 20;
+  for (let i = 0; i < graphCanvas.width; i += gridSpacing) {
+    graphCtx.beginPath();
+    graphCtx.moveTo(i, 0);
+    graphCtx.lineTo(i, graphCanvas.height);
+    graphCtx.stroke();
+  }
+  for (let i = 0; i < graphCanvas.height; i += gridSpacing) {
+    graphCtx.beginPath();
+    graphCtx.moveTo(0, i);
+    graphCtx.lineTo(graphCanvas.width, i);
+    graphCtx.stroke();
+  }
+
+  if (populationHistory.length > 1) {
+    const leftMargin = 46;
+    const rightMargin = 16;
+    const topMargin = 18;
+    const bottomMargin = 28;
+    const effectiveWidth = graphCanvas.width - leftMargin - rightMargin;
+    const effectiveHeight = graphCanvas.height - topMargin - bottomMargin;
+    const maxPop = Math.max(...populationHistory);
+    const minPop = Math.min(...populationHistory);
+    const popRange = maxPop - minPop || 1;
+    const scaleY = effectiveHeight / popRange;
+    const stepX = populationHistory.length > 1 ? effectiveWidth / (populationHistory.length - 1) : 0;
+
+    // Draw axes
+    graphCtx.strokeStyle = "rgba(255,255,255,0.35)";
+    graphCtx.lineWidth = 1;
+    graphCtx.beginPath();
+    graphCtx.moveTo(leftMargin, topMargin);
+    graphCtx.lineTo(leftMargin, graphCanvas.height - bottomMargin);
+    graphCtx.lineTo(graphCanvas.width - rightMargin, graphCanvas.height - bottomMargin);
+    graphCtx.stroke();
+
+    // Y axis labels
+    graphCtx.fillStyle = "#ccc";
+    graphCtx.font = "12px monospace";
+    graphCtx.textAlign = "right";
+    graphCtx.textBaseline = "middle";
+    const yTicks = 4;
+    for (let i = 0; i <= yTicks; i++) {
+      const y = topMargin + (effectiveHeight * i) / yTicks;
+      const value = Math.round(maxPop - (popRange * i) / yTicks);
+      graphCtx.fillText(value.toString(), leftMargin - 8, y);
+      graphCtx.beginPath();
+      graphCtx.moveTo(leftMargin - 4, y);
+      graphCtx.lineTo(leftMargin, y);
+      graphCtx.stroke();
+    }
+
+    // X axis labels
+    graphCtx.textAlign = "center";
+    graphCtx.textBaseline = "top";
+    const xTicks = Math.min(6, populationHistory.length - 1);
+    for (let i = 0; i <= xTicks; i++) {
+      const index = Math.round((populationHistory.length - 1) * i / xTicks);
+      const x = leftMargin + stepX * index;
+      graphCtx.fillText(index.toString(), x, graphCanvas.height - bottomMargin + 6);
+      graphCtx.beginPath();
+      graphCtx.moveTo(x, graphCanvas.height - bottomMargin);
+      graphCtx.lineTo(x, graphCanvas.height - bottomMargin + 4);
+      graphCtx.stroke();
+    }
+
+    graphCtx.fillStyle = "rgba(0, 255, 0, 0.1)";
+    graphCtx.beginPath();
+    graphCtx.moveTo(leftMargin, graphCanvas.height - bottomMargin);
+    for (let i = 0; i < populationHistory.length; i++) {
+      const x = leftMargin + i * stepX;
+      const y = topMargin + (maxPop - populationHistory[i]) * scaleY;
+      graphCtx.lineTo(x, y);
+    }
+    graphCtx.lineTo(leftMargin + effectiveWidth, graphCanvas.height - bottomMargin);
+    graphCtx.fill();
+
+    graphCtx.lineWidth = 2;
+    for (let i = 1; i < populationHistory.length; i++) {
+      const x1 = leftMargin + (i - 1) * stepX;
+      const y1 = topMargin + (maxPop - populationHistory[i - 1]) * scaleY;
+      const x2 = leftMargin + i * stepX;
+      const y2 = topMargin + (maxPop - populationHistory[i]) * scaleY;
+      if (populationHistory[i] > populationHistory[i - 1]) {
+        graphCtx.strokeStyle = "#00ff00";
+      } else if (populationHistory[i] < populationHistory[i - 1]) {
+        graphCtx.strokeStyle = "#ff3333";
+      } else {
+        graphCtx.strokeStyle = "#00ff00";
+      }
+      graphCtx.beginPath();
+      graphCtx.moveTo(x1, y1);
+      graphCtx.lineTo(x2, y2);
+      graphCtx.stroke();
+    }
+
+    if (selectedGraphGeneration !== null && selectedGraphGeneration >= 0 && selectedGraphGeneration < populationHistory.length) {
+      const x = leftMargin + selectedGraphGeneration * stepX;
+      const y = topMargin + (maxPop - populationHistory[selectedGraphGeneration]) * scaleY;
+      graphCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      graphCtx.strokeStyle = "#00ffff";
+      graphCtx.lineWidth = 3;
+      graphCtx.beginPath();
+      graphCtx.arc(x, y, 5, 0, Math.PI * 2);
+      graphCtx.fill();
+      graphCtx.stroke();
+    }
+    updateGraphStats();
+  }
+}
+
 // Track if graph modal is open for continuous updates
 let graphModalOpen = false;
+let selectedGraphGeneration = null;
+
+function getGraphPeriodStats(history, periodLength) {
+  if (!history.length) return null;
+  const endIndex = history.length - 1;
+  const startIndex = Math.max(0, history.length - periodLength);
+  const period = history.slice(startIndex);
+  const high = Math.max(...period);
+  const low = Math.min(...period);
+  return {
+    high,
+    low,
+    highIndex: startIndex + period.lastIndexOf(high),
+    lowIndex: startIndex + period.indexOf(low),
+    startIndex,
+    endIndex
+  };
+}
+
+function getGraphStats() {
+  if (!populationHistory.length) return null;
+  const allTimeHigh = Math.max(...populationHistory);
+  const allTimeLow = Math.min(...populationHistory);
+  return {
+    allTime: {
+      high: allTimeHigh,
+      highIndex: populationHistory.lastIndexOf(allTimeHigh),
+      low: allTimeLow,
+      lowIndex: populationHistory.indexOf(allTimeLow)
+    },
+    decade: getGraphPeriodStats(populationHistory, 10),
+    century: getGraphPeriodStats(populationHistory, 100),
+    millenium: getGraphPeriodStats(populationHistory, 1000)
+  };
+}
+
+function updateExpandedGraphInfo() {
+  const stats = getGraphStats();
+  if (!stats) return;
+  const panel = document.getElementById("graphInfoPanel");
+  if (!panel) return;
+
+  panel.innerHTML = `
+    <div class="graphInfoBlock">
+      <h3>Graph Summary</h3>
+      <div class="graphInfoLine"><span>Current generation</span><strong>${generation}</strong></div>
+      <div class="graphInfoLine"><span>Current population</span><strong>${grid.size}</strong></div>
+      <div class="graphInfoLine"><span>History length</span><strong>${populationHistory.length}</strong></div>
+      <div class="graphInfoLine"><span>Selected generation</span><strong>${selectedGraphGeneration !== null ? selectedGraphGeneration : '-'}</strong></div>
+    </div>
+    <div class="graphInfoBlock">
+      <h3>Period High / Low</h3>
+      <div class="graphInfoLine"><span class="graphMetricLabel">Latest decade high</span><span><strong>${stats.decade.high}</strong> <span class="graphJumpLink" data-gen="${stats.decade.highIndex}">#${stats.decade.highIndex}</span></span></div>
+      <div class="graphInfoLine"><span class="graphMetricLabel">Latest decade low</span><span><strong>${stats.decade.low}</strong> <span class="graphJumpLink" data-gen="${stats.decade.lowIndex}">#${stats.decade.lowIndex}</span></span></div>
+      <div class="graphInfoLine"><span class="graphMetricLabel">Latest century high</span><span><strong>${stats.century.high}</strong> <span class="graphJumpLink" data-gen="${stats.century.highIndex}">#${stats.century.highIndex}</span></span></div>
+      <div class="graphInfoLine"><span class="graphMetricLabel">Latest century low</span><span><strong>${stats.century.low}</strong> <span class="graphJumpLink" data-gen="${stats.century.lowIndex}">#${stats.century.lowIndex}</span></span></div>
+      <div class="graphInfoLine"><span class="graphMetricLabel">Latest millennium high</span><span><strong>${stats.millenium.high}</strong> <span class="graphJumpLink" data-gen="${stats.millenium.highIndex}">#${stats.millenium.highIndex}</span></span></div>
+      <div class="graphInfoLine"><span class="graphMetricLabel">Latest millennium low</span><span><strong>${stats.millenium.low}</strong> <span class="graphJumpLink" data-gen="${stats.millenium.lowIndex}">#${stats.millenium.lowIndex}</span></span></div>
+      <div class="graphInfoLine"><span class="graphMetricLabel">All time high</span><span><strong>${stats.allTime.high}</strong> <span class="graphJumpLink" data-gen="${stats.allTime.highIndex}">#${stats.allTime.highIndex}</span></span></div>
+      <div class="graphInfoLine"><span class="graphMetricLabel">All time low</span><span><strong>${stats.allTime.low}</strong> <span class="graphJumpLink" data-gen="${stats.allTime.lowIndex}">#${stats.allTime.lowIndex}</span></span></div>
+    </div>
+  `;
+
+  panel.querySelectorAll('.graphJumpLink').forEach(link => {
+    link.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const targetGen = parseInt(event.currentTarget.dataset.gen, 10);
+      if (!isNaN(targetGen)) {
+        selectedGraphGeneration = targetGen;
+        scrollExpandedGraphToGeneration(targetGen);
+        const expandedCanvas = document.getElementById('expandedGraphCanvas');
+        drawExpandedPopulationGraph(expandedCanvas, expandedCanvas.getContext('2d'));
+      }
+    });
+  });
+}
+
+function scrollExpandedGraphToGeneration(gen) {
+  const wrapper = document.getElementById('graphScrollWrapper');
+  const expandedCanvas = document.getElementById('expandedGraphCanvas');
+  if (!wrapper || !expandedCanvas || populationHistory.length < 2) return;
+  const leftMargin = 50;
+  const rightMargin = 20;
+  const effectiveWidth = expandedCanvas.width - leftMargin - rightMargin;
+  const stepX = populationHistory.length > 1 ? effectiveWidth / (populationHistory.length - 1) : 0;
+  const x = leftMargin + gen * stepX;
+  wrapper.scrollLeft = Math.max(0, x - wrapper.clientWidth / 2);
+}
 
 // Open graph modal
+function updateExpandedGraphControls() {
+  const expandedSpeed = document.getElementById("expandedGraphSpeed");
+  const expandedPlayBtn = document.getElementById("expandedGraphPlayBtn");
+  const mainSpeedInput = document.getElementById("speed");
+  if (expandedSpeed && mainSpeedInput) {
+    expandedSpeed.value = mainSpeedInput.value;
+  }
+  if (expandedPlayBtn) {
+    expandedPlayBtn.textContent = running ? "Running" : "Paused";
+    expandedPlayBtn.className = running ? "running" : "paused";
+  }
+}
+
 function openGraphModal() {
   const modal = document.getElementById("graphModal");
   modal.classList.add("active");
   graphModalOpen = true;
   
-  // Size the expanded canvas
   const container = document.getElementById("graphContainer");
+  const wrapper = document.getElementById("graphScrollWrapper");
   const expandedCanvas = document.getElementById("expandedGraphCanvas");
-  
-  // Set canvas size to fill container
-  expandedCanvas.width = container.clientWidth - 40;
-  expandedCanvas.height = container.clientHeight - 80;
-  
-  // Draw the graph on the expanded canvas
+  const expandedSpeed = document.getElementById("expandedGraphSpeed");
+  const expandedPlayBtn = document.getElementById("expandedGraphPlayBtn");
+
+  expandedCanvas.width = Math.max(container.clientWidth - 40, populationHistory.length * 12 + 140);
+  expandedCanvas.height = Math.max(container.clientHeight - 190, 280);
+  wrapper.scrollLeft = Math.max(0, expandedCanvas.width - wrapper.clientWidth);
+
+  if (expandedSpeed) {
+    expandedSpeed.value = document.getElementById("speed").value;
+  }
+  if (expandedPlayBtn) {
+    updateExpandedGraphControls();
+  }
+
   const ctx = expandedCanvas.getContext("2d");
-  drawPopulationGraph(expandedCanvas, ctx);
+  drawExpandedPopulationGraph(expandedCanvas, ctx);
+  updateExpandedGraphInfo();
 }
 
 // Close graph modal
@@ -1697,15 +2056,36 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   });
 
+  const expandedSpeed = document.getElementById("expandedGraphSpeed");
+  const expandedPlayBtn = document.getElementById("expandedGraphPlayBtn");
+  const mainSpeed = document.getElementById("speed");
+  if (expandedSpeed) {
+    expandedSpeed.value = mainSpeed ? mainSpeed.value : "10";
+    expandedSpeed.addEventListener("input", function(e) {
+      if (mainSpeed) mainSpeed.value = e.target.value;
+    });
+  }
+  if (mainSpeed && expandedSpeed) {
+    mainSpeed.addEventListener("input", function(e) {
+      expandedSpeed.value = e.target.value;
+    });
+  }
+  if (expandedPlayBtn) {
+    updateExpandedGraphControls();
+  }
+
   // Redraw expanded graph on window resize
   window.addEventListener("resize", function() {
     if (modal.classList.contains("active")) {
       const expandedCanvas = document.getElementById("expandedGraphCanvas");
       const container = document.getElementById("graphContainer");
-      expandedCanvas.width = container.clientWidth - 40;
-      expandedCanvas.height = container.clientHeight - 80;
+      const wrapper = document.getElementById("graphScrollWrapper");
+      expandedCanvas.width = Math.max(container.clientWidth - 40, populationHistory.length * 12 + 140);
+      expandedCanvas.height = Math.max(container.clientHeight - 190, 280);
+      wrapper.scrollLeft = Math.max(0, expandedCanvas.width - wrapper.clientWidth);
       const ctx = expandedCanvas.getContext("2d");
-      drawPopulationGraph(expandedCanvas, ctx);
+      drawExpandedPopulationGraph(expandedCanvas, ctx);
+      updateExpandedGraphInfo();
     }
   });
 });
@@ -1744,7 +2124,8 @@ function loop(t){
     const expandedCanvas = document.getElementById("expandedGraphCanvas");
     if (expandedCanvas && expandedCanvas.width > 0) {
       const ctx = expandedCanvas.getContext("2d");
-      drawPopulationGraph(expandedCanvas, ctx);
+      drawExpandedPopulationGraph(expandedCanvas, ctx);
+      updateExpandedGraphInfo();
     }
   }
 }
@@ -1771,6 +2152,7 @@ function togglePlay(){
 
   running = !running;
   updateButton();
+  updateExpandedGraphControls();
 
   log(running ? "Simulation started" : "Simulation paused", "action");
 }
@@ -1798,7 +2180,7 @@ function toggleAutoPauseWhenStatic(enabled){
   autoPauseWhenStatic = enabled;
   const checkbox = document.getElementById("autoPauseStaticCheckbox");
   if (checkbox) checkbox.checked = enabled;
-  log(enabled ? "Auto-pause on static graph enabled" : "Auto-pause on static graph disabled", "action");
+  log(enabled ? "Auto-pause on stable graph enabled" : "Auto-pause on stable graph disabled", "action");
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -3305,6 +3687,83 @@ termInput.addEventListener("keydown", e => {
   }
 });
 
+// Press '/' to focus the terminal input (quick command entry)
+window.addEventListener('keydown', e => {
+  const tag = document.activeElement && document.activeElement.tagName ? document.activeElement.tagName.toLowerCase() : null;
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return; // don't steal typing
+  if (e.key === '/') {
+    e.preventDefault();
+    const t = document.getElementById('terminalInput');
+    if (t) {
+      t.focus();
+      t.select();
+    }
+  }
+});
+
+// Smart shortcuts dropdown positioning: expand to the right if not enough vertical space
+(() => {
+  const DROPDOWN_SELECTOR = '.shortcut-dropdown';
+  const CONTENT_SELECTOR = '.shortcut-content';
+
+  function resetContentStyles(content) {
+    content.style.display = '';
+    content.style.left = '';
+    content.style.right = '';
+    content.style.top = '';
+    content.style.bottom = '';
+    content.style.maxHeight = '';
+    content.style.overflowY = '';
+  }
+
+  document.querySelectorAll(DROPDOWN_SELECTOR).forEach(dd => {
+    const content = dd.querySelector(CONTENT_SELECTOR);
+    if (!content) return;
+
+    let enterHandler = () => {
+      // Temporarily show to measure size
+      content.style.display = 'block';
+      content.style.maxHeight = '';
+      content.style.overflowY = '';
+
+      const ddRect = dd.getBoundingClientRect();
+      const contentHeight = content.offsetHeight;
+      const spaceBelow = window.innerHeight - ddRect.bottom - 10;
+      const spaceAbove = ddRect.top - 10;
+
+      // If content won't fit below and there's more horizontal room than vertical,
+      // position it to the right of the dropdown (grow horizontally)
+      if (contentHeight > spaceBelow && (window.innerWidth - ddRect.right) > Math.min(spaceBelow, spaceAbove)) {
+        content.style.left = '100%';
+        content.style.top = '0';
+        content.style.right = 'auto';
+        content.style.bottom = 'auto';
+        content.style.maxHeight = (window.innerHeight - 20) + 'px';
+        content.style.overflowY = 'auto';
+      } else if (contentHeight > spaceBelow && spaceAbove > spaceBelow) {
+        // Prefer showing above if there's more room above
+        content.style.top = 'auto';
+        content.style.bottom = '100%';
+        content.style.left = '0';
+        content.style.maxHeight = (spaceAbove - 10) + 'px';
+        content.style.overflowY = 'auto';
+      } else {
+        // Default: show below
+        content.style.left = '0';
+        content.style.top = '100%';
+        content.style.maxHeight = Math.max(0, spaceBelow) + 'px';
+        if (contentHeight > spaceBelow) content.style.overflowY = 'auto';
+      }
+    };
+
+    let leaveHandler = () => resetContentStyles(content);
+
+    dd.addEventListener('mouseenter', enterHandler);
+    dd.addEventListener('mouseleave', leaveHandler);
+    window.addEventListener('resize', () => resetContentStyles(content));
+  });
+})();
+
 function runCommand(cmd) {
   const args = cmd.trim().split(/\s+/);
   const base = args[0].toLowerCase();
@@ -3346,10 +3805,25 @@ function runCommand(cmd) {
 
     case "speed":
       if (args[1]) {
-        const speedInput = document.getElementById("speed");
-        speedInput.value = args[1];
-        speedInput.dispatchEvent(new Event("input"));
-        log("Speed = " + args[1]);
+        const v = parseInt(args[1], 10);
+        if (!isNaN(v) && v > 0) {
+          const speedInput = document.getElementById("speed");
+          if (speedInput) {
+            const curMax = parseInt(speedInput.max || 0, 10) || 0;
+            if (v > curMax) speedInput.max = String(v);
+            speedInput.value = v;
+            speedInput.dispatchEvent(new Event("input"));
+          }
+          const expanded = document.getElementById("expandedGraphSpeed");
+          if (expanded) {
+            const expMax = parseInt(expanded.max || 0, 10) || 0;
+            if (v > expMax) expanded.max = String(v);
+            expanded.value = v;
+          }
+          log("Speed = " + v);
+        } else {
+          log("Usage: speed <number>");
+        }
       } else {
         log("Usage: speed <number>");
       }
@@ -3357,10 +3831,19 @@ function runCommand(cmd) {
 
     case "brush":
       if (args[1]) {
-        const brushInput = document.getElementById("brushSize");
-        brushInput.value = args[1];
-        brushInput.dispatchEvent(new Event("input"));
-        log("Brush = " + args[1]);
+        const v = parseInt(args[1], 10);
+        if (!isNaN(v) && v > 0) {
+          const brushInput = document.getElementById("brushSize");
+          if (brushInput) {
+            const curMax = parseInt(brushInput.max || 0, 10) || 0;
+            if (v > curMax) brushInput.max = String(v);
+            brushInput.value = v;
+            brushInput.dispatchEvent(new Event("input"));
+          }
+          log("Brush = " + v);
+        } else {
+          log("Usage: brush <number>");
+        }
       } else {
         log("Usage: brush <number>");
       }
