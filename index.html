@@ -205,6 +205,51 @@
     color: #ccc;
   }
 
+  #clipboardMenu .clipboard-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  #clipboardMenu .clipboard-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  #clipboardMenu .clipboard-action-btn {
+    border: 1px solid #444;
+    background: #222;
+    color: #ddd;
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 10px;
+    cursor: pointer;
+  }
+
+  #clipboardMenu .clipboard-action-btn:hover {
+    background: #333;
+    color: #fff;
+  }
+
+  #clipboardMenu .clipboard-clear {
+    margin-top: 8px;
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #555;
+    background: #2a2a2a;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  #clipboardMenu .clipboard-clear:hover {
+    background: #3a3a3a;
+  }
+
   /* Stats display styling */
   #stats { font-size: 12px; margin-top: 6px; }
   /* Stats panel layout */
@@ -407,6 +452,44 @@
     gap: 10px;
   }
 
+  .graphInfoTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2px;
+    font-size: 0.9rem;
+  }
+
+  .graphInfoTable th,
+  .graphInfoTable td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #2a2a2a;
+    vertical-align: top;
+  }
+
+  .graphInfoTable thead th {
+    color: #8fe6ff;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .graphInfoTable tbody th {
+    color: #ddd;
+    font-weight: 600;
+    width: 54%;
+  }
+
+  .graphInfoTable td {
+    color: #ddd;
+  }
+
+  .graphInfoTable tr:last-child th,
+  .graphInfoTable tr:last-child td {
+    border-bottom: none;
+  }
+
   .graphJumpLink {
     color: #70b4ff;
     cursor: pointer;
@@ -518,7 +601,7 @@
         <div class="shortcut-item"><span>X</span> <span>Step Generation</span></div>
         <div class="shortcut-item"><span>0</span> <span>Reset View</span></div>
         <div class="shortcut-item"><span>Ctrl + D</span> <span>Toggle Data Panel</span></div>
-        <div class="shortcut-item"><span>Ctrl + T</span> <span>Toggle Wall</span></div>
+        <div class="shortcut-item"><span>Ctrl + Alt + W</span> <span>Toggle Wall</span></div>
         <div class="shortcut-item"><span>Delete/Backspace</span> <span>Clear Grid</span></div>
         <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
         <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
@@ -594,13 +677,31 @@
         <span>generations</span>
       </label>
       <div class="settings-note">When enabled, the simulation auto-pauses after no births or deaths, or when the total cell count stays unchanged for the entered number of generations. Leave blank for 10.</div>
+      <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px;">
+        <span>Graph generation scale</span>
+        <select id="graphGenerationScaleSelect" style="padding:3px; font-size:12px;">
+          <option value="default">Default</option>
+          <option value="decade">Decades</option>
+          <option value="century">Centuries</option>
+          <option value="millennium">Millennia</option>
+        </select>
+      </label>
+      <div class="settings-note">Choose how generation counts are displayed on the graph and in graph summaries. Values are rounded to three decimals.</div>
+      <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px;">
+        <span>Living count display</span>
+        <select id="livingCountDisplaySelect" style="padding:3px; font-size:12px;">
+          <option value="default">Default</option>
+          <option value="scientific">Scientific</option>
+        </select>
+      </label>
+      <div class="settings-note">Choose how the living cell count is shown in the status bar and summaries. Scientific notation is rounded to three decimal places.</div>
     </div>
   </div>
 </div>
   </div>
 
   <div id="stats" style="font-size: 12px; margin-top: 6px;">
-    Generation: <span id="genCount">0</span> | Living: <span id="liveCount">0</span> | FPS: <span id="fpsCount">0</span>
+    <span>Generation:</span> <span id="genCount">0</span> <span id="generationScaleLabel" style="color:#8fe6ff;">(generations)</span> | Living: <span id="liveCount">0</span> | FPS: <span id="fpsCount">0</span>
   </div>
   
 <div class="row" style="align-items:center; margin-top: 8px; gap:10px;">
@@ -743,6 +844,8 @@ let offsetY = 0; // Vertical pan offset
 let running = false; // Whether simulation is running
 let pauseOnInactive = false; // Automatically pause when tab becomes inactive
 let autoPauseWhenStatic = false; // Automatically pause when grid is stable for a while
+let graphGenerationScale = "default"; // Display scale for graph generation labels: default/decade/century/millennium
+let livingCountDisplay = "default"; // Display mode for living cell count: default/scientific
 let staticGenerationCount = 0; // Consecutive generations with no births or deaths
 let samePopulationCount = 0; // Consecutive generations with unchanged population
 let pausedByInactivity = false; // Whether the pause was triggered by tab inactivity
@@ -777,7 +880,8 @@ let showDataPanel = false; // Whether the data panel is visible
 
 let patternRotation = 0; // Rotation angle for patterns (0, 90, 180, 270)
 let patternMirror = 0; // Mirror mode: 0 = none, 1 = horizontal, 2 = vertical
-let mirrorLine = null; // Mirror line endpoints for reflection
+let mirrorLine = null; // Last placed mirror line endpoints for reflection
+let mirrorLines = []; // Stored mirror line endpoints (up to 2)
 let mirrorLineMode = false; // Whether mirror line placement mode is active
 let mirrorLineStart = null; // Starting point for mirror line placement
 let mirrorLinePlacing = false; // Whether user is currently dragging a mirror line
@@ -1192,6 +1296,53 @@ function clearSelection(){
   selectedCells.clear();
 }
 
+function clearSelectionContents() {
+  const bounds = selectionActive ? getSelectionBounds() : selectionRect;
+  const cellsToClear = [];
+
+  if (selectedCells.size > 0) {
+    for (const keyStr of selectedCells) {
+      cellsToClear.push(keyStr);
+    }
+  } else if (bounds) {
+    for (const keyStr of grid) {
+      const [x, y] = parse(keyStr);
+      if (x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2) {
+        cellsToClear.push(keyStr);
+      }
+    }
+  }
+
+  if (cellsToClear.length === 0) {
+    clearSelection();
+    updateDataPanel();
+    return;
+  }
+
+  undoStack.push(createSnapshot());
+  if (undoStack.length > MAX_HISTORY) {
+    undoStack.shift();
+  }
+  redoStack = [];
+  running = false;
+  updateButton();
+
+  for (const keyStr of cellsToClear) {
+    grid.delete(keyStr);
+    cellAges.delete(keyStr);
+  }
+
+  clearSelection();
+  updateStats();
+  updateGraphStats();
+  updateExpandedGraphInfo();
+  if (graphModalOpen) {
+    redrawExpandedGraph();
+  }
+  updateDataPanel();
+  log("Selection cleared", "action");
+}
+
 function selectAllCells(){
   if(grid.size === 0){
     log("No live cells to select.", "warn");
@@ -1235,13 +1386,67 @@ function updateClipboardMenu(){
 
   empty.style.display = "none";
 
-  clipboardHistory.forEach((entry, index) => {
+  clipboardHistory.forEach((entry) => {
     const item = document.createElement("div");
     item.className = "clipboard-item";
-    item.innerHTML = `<span class="clipboard-number">${entry.name} : </span><span class="clipboard-box">${entry.width}×${entry.height}</span>`;
-    item.onclick = () => selectClipboardEntry(entry.id);
+
+    const row = document.createElement("div");
+    row.className = "clipboard-item-row";
+
+    const main = document.createElement("div");
+    main.className = "clipboard-item-main";
+    main.innerHTML = `<span class="clipboard-number">${entry.name} : </span><span class="clipboard-box">${entry.width}×${entry.height}</span>`;
+    main.onclick = () => selectClipboardEntry(entry.id);
+
+    const actions = document.createElement("div");
+    actions.className = "clipboard-actions";
+
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "clipboard-action-btn";
+    renameBtn.textContent = "✎";
+    renameBtn.title = "Rename";
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt("Rename clipboard entry:", entry.name);
+      if (newName !== null && newName.trim() !== "") {
+        entry.name = newName.trim();
+        updateClipboardMenu();
+      }
+    };
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "clipboard-action-btn";
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "Delete";
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      clipboardHistory = clipboardHistory.filter(item => item.id !== entry.id);
+      delete patterns[entry.id];
+      updateClipboardMenu();
+    };
+
+    actions.appendChild(renameBtn);
+    actions.appendChild(deleteBtn);
+    row.appendChild(main);
+    row.appendChild(actions);
+    item.appendChild(row);
     items.appendChild(item);
   });
+
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "clipboard-clear";
+  clearBtn.textContent = "Clear Clipboard";
+  clearBtn.onclick = (e) => {
+    e.stopPropagation();
+    clipboardHistory = [];
+    Object.keys(patterns).forEach((key) => {
+      if (key.startsWith("clipboard-")) {
+        delete patterns[key];
+      }
+    });
+    updateClipboardMenu();
+  };
+  items.appendChild(clearBtn);
 }
 
 function openClipboardMenu(){
@@ -1373,7 +1578,7 @@ function draw(){
       }
 
       if(fullCellMode){
-        ctx.fillRect(sx - 1, sy - 1, cellSize + 2, cellSize + 2);
+        ctx.fillRect(sx-0.5, sy-0.5, cellSize+1, cellSize+1);
       } else {
         ctx.fillRect(sx + padding, sy + padding, size, size);
       }
@@ -1415,7 +1620,7 @@ function draw(){
     ctx.restore();
   }
 
-  if (mirrorLine || mirrorLinePlacing) {
+  if (mirrorLine || mirrorLinePlacing || mirrorLines.length > 0) {
     ctx.save();
     ctx.strokeStyle = mirrorLinePlacing ? "cyan" : "yellow";
     ctx.lineWidth = 3;
@@ -1426,8 +1631,17 @@ function draw(){
       ctx.lineTo(x2 * cellSize + offsetX + cellSize / 2, y2 * cellSize + offsetY + cellSize / 2);
     };
 
+    for (const line of mirrorLines) {
+      renderSegment({x1: line[0][0], y1: line[0][1], x2: line[1][0], y2: line[1][1]});
+    }
     if (mirrorLine) {
-      renderSegment({x1: mirrorLine[0][0], y1: mirrorLine[0][1], x2: mirrorLine[1][0], y2: mirrorLine[1][1]});
+      const alreadyRendered = mirrorLines.some(line =>
+        line[0][0] === mirrorLine[0][0] && line[0][1] === mirrorLine[0][1] &&
+        line[1][0] === mirrorLine[1][0] && line[1][1] === mirrorLine[1][1]
+      );
+      if (!alreadyRendered) {
+        renderSegment({x1: mirrorLine[0][0], y1: mirrorLine[0][1], x2: mirrorLine[1][0], y2: mirrorLine[1][1]});
+      }
     }
     if (mirrorLinePlacing && mirrorLineStart) {
       let end = [Math.floor((mouseX - offsetX) / cellSize), Math.floor((mouseY - offsetY) / cellSize)];
@@ -1523,12 +1737,19 @@ const minimapCtx = minimapCanvas.getContext("2d");
 
 minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
 
-// Determine bounds of all live cells
-if (grid.size > 0) {
+// Determine bounds of all live cells and walls
+const minimapPoints = [];
+for (let k of grid) {
+  minimapPoints.push(parse(k));
+}
+for (let k of wallRegions) {
+  minimapPoints.push(parse(k));
+}
+
+if (minimapPoints.length > 0) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-  for (let k of grid) {
-    let [x, y] = parse(k);
+  for (let [x, y] of minimapPoints) {
     if (x < minX) minX = x;
     if (y < minY) minY = y;
     if (x > maxX) maxX = x;
@@ -1545,7 +1766,15 @@ if (grid.size > 0) {
   let offsetXMinimap = (minimapCanvas.width - width * scale) / 2;
   let offsetYMinimap = (minimapCanvas.height - height * scale) / 2;
 
-  // Draw cells
+  minimapCtx.fillStyle = "red";
+  for (let k of wallRegions) {
+    let [x, y] = parse(k);
+    let mx = offsetXMinimap + (x - minX) * scale;
+    let my = offsetYMinimap + (y - minY) * scale;
+
+    minimapCtx.fillRect(mx, my, Math.max(1, scale), Math.max(1, scale));
+  }
+
   minimapCtx.fillStyle = "lime";
   for (let k of grid) {
     let [x, y] = parse(k);
@@ -1718,6 +1947,30 @@ function step(){
 }
 
 // Draw population graph on any canvas
+function getGenerationScaleFactor() {
+  switch (graphGenerationScale) {
+    case "decade": return 10;
+    case "century": return 100;
+    case "millennium": return 1000;
+    default: return 1;
+  }
+}
+
+function formatGenerationValue(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "-";
+  const factor = getGenerationScaleFactor();
+  if (factor === 1) return numericValue.toString();
+  return (numericValue / factor).toFixed(3);
+}
+
+function formatLivingCount(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "-";
+  if (livingCountDisplay !== "scientific") return numericValue.toString();
+  return numericValue.toExponential(3);
+}
+
 function drawPopulationGraph(graphCanvas, graphCtx) {
   graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
 
@@ -1845,7 +2098,7 @@ function drawExpandedPopulationGraph(graphCanvas, graphCtx) {
     for (let i = 0; i <= xTicks; i++) {
       const index = Math.round((populationHistory.length - 1) * i / xTicks);
       const x = leftMargin + stepX * index;
-      graphCtx.fillText(index.toString(), x, graphCanvas.height - bottomMargin + 6);
+      graphCtx.fillText(formatGenerationValue(index), x, graphCanvas.height - bottomMargin + 6);
       graphCtx.beginPath();
       graphCtx.moveTo(x, graphCanvas.height - bottomMargin);
       graphCtx.lineTo(x, graphCanvas.height - bottomMargin + 4);
@@ -1945,22 +2198,43 @@ function updateExpandedGraphInfo() {
   panel.innerHTML = `
     <div class="graphInfoBlock">
       <h3>Graph Summary</h3>
-      <div class="graphInfoLine"><span>Current generation</span><strong>${generation}</strong></div>
-      <div class="graphInfoLine"><span>Current population</span><strong>${grid.size}</strong></div>
-      <div class="graphInfoLine"><span>History length</span><strong>${populationHistory.length}</strong></div>
-      <div class="graphInfoLine"><span>Selected generation</span><strong>${selectedGraphGeneration !== null ? selectedGraphGeneration : '-'}</strong></div>
+      <table class="graphInfoTable">
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            <th scope="col"># of cells</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Current generation</th><td>${formatGenerationValue(generation)}</td></tr>
+          <tr><th scope="row">Current population</th><td>${formatLivingCount(grid.size)}</td></tr>
+          <tr><th scope="row">History length</th><td>${populationHistory.length}</td></tr>
+          <tr><th scope="row">Selected generation</th><td>${selectedGraphGeneration !== null ? formatGenerationValue(selectedGraphGeneration) : '-'}</td></tr>
+        </tbody>
+      </table>
     </div>
     <div class="graphInfoBlock">
       <h3>Period High / Low</h3>
       ${hasHistory ? `
-        <div class="graphInfoLine"><span class="graphMetricLabel">Latest decade high</span><span><strong>${stats.decade.high}</strong> <span class="graphJumpLink" data-gen="${stats.decade.highIndex}">#${stats.decade.highIndex}</span></span></div>
-        <div class="graphInfoLine"><span class="graphMetricLabel">Latest decade low</span><span><strong>${stats.decade.low}</strong> <span class="graphJumpLink" data-gen="${stats.decade.lowIndex}">#${stats.decade.lowIndex}</span></span></div>
-        <div class="graphInfoLine"><span class="graphMetricLabel">Latest century high</span><span><strong>${stats.century.high}</strong> <span class="graphJumpLink" data-gen="${stats.century.highIndex}">#${stats.century.highIndex}</span></span></div>
-        <div class="graphInfoLine"><span class="graphMetricLabel">Latest century low</span><span><strong>${stats.century.low}</strong> <span class="graphJumpLink" data-gen="${stats.century.lowIndex}">#${stats.century.lowIndex}</span></span></div>
-        <div class="graphInfoLine"><span class="graphMetricLabel">Latest millennium high</span><span><strong>${stats.millenium.high}</strong> <span class="graphJumpLink" data-gen="${stats.millenium.highIndex}">#${stats.millenium.highIndex}</span></span></div>
-        <div class="graphInfoLine"><span class="graphMetricLabel">Latest millennium low</span><span><strong>${stats.millenium.low}</strong> <span class="graphJumpLink" data-gen="${stats.millenium.lowIndex}">#${stats.millenium.lowIndex}</span></span></div>
-        <div class="graphInfoLine"><span class="graphMetricLabel">All time high</span><span><strong>${stats.allTime.high}</strong> <span class="graphJumpLink" data-gen="${stats.allTime.highIndex}">#${stats.allTime.highIndex}</span></span></div>
-        <div class="graphInfoLine"><span class="graphMetricLabel">All time low</span><span><strong>${stats.allTime.low}</strong> <span class="graphJumpLink" data-gen="${stats.allTime.lowIndex}">#${stats.allTime.lowIndex}</span></span></div>
+        <table class="graphInfoTable">
+          <thead>
+            <tr>
+              <th scope="col">Metric</th>
+              <th scope="col"># of Cells</th>
+              <th scope="col">Generation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Latest decade high</th><td>${stats.decade.high}</td><td><span class="graphJumpLink" data-gen="${stats.decade.highIndex}">#${formatGenerationValue(stats.decade.highIndex)}</span></td></tr>
+            <tr><th scope="row">Latest decade low</th><td>${stats.decade.low}</td><td><span class="graphJumpLink" data-gen="${stats.decade.lowIndex}">#${formatGenerationValue(stats.decade.lowIndex)}</span></td></tr>
+            <tr><th scope="row">Latest century high</th><td>${stats.century.high}</td><td><span class="graphJumpLink" data-gen="${stats.century.highIndex}">#${formatGenerationValue(stats.century.highIndex)}</span></td></tr>
+            <tr><th scope="row">Latest century low</th><td>${stats.century.low}</td><td><span class="graphJumpLink" data-gen="${stats.century.lowIndex}">#${formatGenerationValue(stats.century.lowIndex)}</span></td></tr>
+            <tr><th scope="row">Latest millennium high</th><td>${stats.millenium.high}</td><td><span class="graphJumpLink" data-gen="${stats.millenium.highIndex}">#${formatGenerationValue(stats.millenium.highIndex)}</span></td></tr>
+            <tr><th scope="row">Latest millennium low</th><td>${stats.millenium.low}</td><td><span class="graphJumpLink" data-gen="${stats.millenium.lowIndex}">#${formatGenerationValue(stats.millenium.lowIndex)}</span></td></tr>
+            <tr><th scope="row">All time high</th><td>${stats.allTime.high}</td><td><span class="graphJumpLink" data-gen="${stats.allTime.highIndex}">#${formatGenerationValue(stats.allTime.highIndex)}</span></td></tr>
+            <tr><th scope="row">All time low</th><td>${stats.allTime.low}</td><td><span class="graphJumpLink" data-gen="${stats.allTime.lowIndex}">#${formatGenerationValue(stats.allTime.lowIndex)}</span></td></tr>
+          </tbody>
+        </table>
       ` : `<div class="graphInfoLine"><span class="graphMetricLabel">No history yet</span><strong>—</strong></div>`}
     </div>
   `;
@@ -2072,6 +2346,20 @@ document.addEventListener("DOMContentLoaded", function() {
   const expandedSpeed = document.getElementById("expandedGraphSpeed");
   const expandedPlayBtn = document.getElementById("expandedGraphPlayBtn");
   const mainSpeed = document.getElementById("speed");
+  const generationScaleSelect = document.getElementById("graphGenerationScaleSelect");
+  if (generationScaleSelect) {
+    generationScaleSelect.value = graphGenerationScale;
+    generationScaleSelect.addEventListener("change", updateGraphGenerationScaleSetting);
+  }
+  const livingCountSelect = document.getElementById("livingCountDisplaySelect");
+  if (livingCountSelect) {
+    livingCountSelect.value = livingCountDisplay;
+    livingCountSelect.addEventListener("change", () => {
+      livingCountDisplay = livingCountSelect.value;
+      updateStats();
+      updateExpandedGraphInfo();
+    });
+  }
   if (expandedSpeed) {
     expandedSpeed.value = mainSpeed ? mainSpeed.value : "10";
     expandedSpeed.addEventListener("input", function(e) {
@@ -2217,6 +2505,22 @@ function toggleSettingsPanel(e){
   const panel = document.getElementById("settingsPanel");
   if (!panel) return;
   panel.style.display = panel.style.display === "block" ? "none" : "block";
+}
+
+function updateGraphGenerationScaleSetting() {
+  const select = document.getElementById("graphGenerationScaleSelect");
+  if (!select) return;
+  graphGenerationScale = select.value;
+  if (graphModalOpen) {
+    redrawExpandedGraph();
+    updateExpandedGraphInfo();
+  }
+  updateStats();
+  const graphCanvas = document.getElementById("graphCanvas");
+  if (graphCanvas) {
+    const ctx = graphCanvas.getContext("2d");
+    drawPopulationGraph(graphCanvas, ctx);
+  }
 }
 
 function updateGridButton(){
@@ -2431,8 +2735,19 @@ function clearGrid(){
 }
 
 function updateStats(){
-  document.getElementById("genCount").textContent = generation;
-  document.getElementById("liveCount").textContent = grid.size;
+  document.getElementById("genCount").textContent = formatGenerationValue(generation);
+  const scaleLabel = document.getElementById("generationScaleLabel");
+  if (scaleLabel) {
+    const scaleName = graphGenerationScale === "default"
+      ? "generations"
+      : graphGenerationScale === "decade"
+        ? "decades"
+        : graphGenerationScale === "century"
+          ? "centuries"
+          : "millennia";
+    scaleLabel.textContent = `(${scaleName})`;
+  }
+  document.getElementById("liveCount").textContent = formatLivingCount(grid.size);
   updateDataPanel();
 }
 
@@ -2550,7 +2865,7 @@ function updateDataPanel(){
   const area = bounds ? bounds.width * bounds.height : 0;
   const density = area ? Math.round((live / area) * 1000) / 10 : 0;
 
-  document.getElementById("dataLive").textContent = live;
+  document.getElementById("dataLive").textContent = formatLivingCount(live);
   document.getElementById("dataBB").textContent = bounds ? `${bounds.width}x${bounds.height}` : "0x0";
   document.getElementById("dataArea").textContent = area;
   document.getElementById("dataDensity").textContent = `${density}%`;
@@ -2709,9 +3024,9 @@ function updateGraphStats() {
     trend = "Dynamic";
   }
 
-  document.getElementById("statPeak").textContent = peak;
-  document.getElementById("statLow").textContent = low;
-  document.getElementById("statAvg").textContent = avg.toFixed(1);
+  document.getElementById("statPeak").textContent = formatLivingCount(peak);
+  document.getElementById("statLow").textContent = formatLivingCount(low);
+  document.getElementById("statAvg").textContent = formatLivingCount(avg);
   const slopeEl = document.getElementById("statSlope");
 slopeEl.textContent = slope.toFixed(3);
 
@@ -3144,7 +3459,7 @@ if (e.ctrlKey && e.key.toLowerCase() === "d") {
     return;
   }
 
-  if (e.ctrlKey && e.key.toLowerCase() === "t") {
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "w") {
     e.preventDefault();
     toggleWall();
     return;
@@ -3167,9 +3482,10 @@ if (e.ctrlKey && e.key.toLowerCase() === "d") {
 
 if (e.key.toLowerCase() === "d") {
   e.preventDefault();
-  if (mirrorLine) {
+  if (mirrorLines.length > 0 || mirrorLine) {
+    mirrorLines = [];
     mirrorLine = null;
-    log("Mirror line removed", "action");
+    log("Mirror lines removed", "action");
     return;
   }
   clearSelection();
@@ -3288,8 +3604,12 @@ if (e.ctrlKey && e.key.toLowerCase() === "y") {
 
   if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault();
-    clearGrid();
-    log("Grid cleared", "action");
+    if (selectionRect || selectedCells.size > 0 || selectionActive) {
+      clearSelectionContents();
+    } else {
+      clearGrid();
+      log("Grid cleared", "action");
+    }
   }
 
 });
@@ -3464,7 +3784,13 @@ canvas.addEventListener("mouseup", () => {
     }
     if (mirrorLineStart && (end[0] !== mirrorLineStart[0] || end[1] !== mirrorLineStart[1])) {
       mirrorLine = [mirrorLineStart, end];
-      log(`Mirror line set from ${mirrorLineStart[0]},${mirrorLineStart[1]} to ${end[0]},${end[1]}`, "action");
+      if (mirrorLines.length < 2) {
+        mirrorLines.push(mirrorLine);
+        const lineNumber = mirrorLines.length;
+        log(`Mirror line ${lineNumber} set from ${mirrorLineStart[0]},${mirrorLineStart[1]} to ${end[0]},${end[1]}`, "action");
+      } else {
+        log("Two mirror lines already set. Press D to clear them before adding another.", "warn");
+      }
     } else {
       log("Mirror line placement cancelled: line too short.", "warn");
     }
@@ -3512,10 +3838,10 @@ canvas.addEventListener("contextmenu",e=>e.preventDefault());
 
 // Place
 function paintCell(x, y, mode, brush, erase) {
-  const getMirrorPoint = (cx, cy) => {
-    if (!mirrorLine) return null;
-    const [x1, y1] = mirrorLine[0];
-    const [x2, y2] = mirrorLine[1];
+  const reflectPoint = (cx, cy, line) => {
+    if (!line) return null;
+    const [x1, y1] = line[0];
+    const [x2, y2] = line[1];
     const dx = x2 - x1;
     const dy = y2 - y1;
     if (dx === 0 && dy === 0) return null;
@@ -3523,6 +3849,31 @@ function paintCell(x, y, mode, brush, erase) {
     const projX = x1 + dx * t;
     const projY = y1 + dy * t;
     return [Math.round(2 * projX - cx), Math.round(2 * projY - cy)];
+  };
+
+  const getMirrorPoints = (cx, cy) => {
+    if (mirrorLines.length === 0) {
+      return [[cx, cy]];
+    }
+
+    const points = [[cx, cy]];
+    for (const line of mirrorLines) {
+      const nextPoints = [];
+      for (const [px, py] of points) {
+        const mirrored = reflectPoint(px, py, line);
+        if (mirrored) {
+          const key = `${mirrored[0]},${mirrored[1]}`;
+          const alreadyExists = points.some(([x, y]) => `${x},${y}` === key);
+          if (!alreadyExists) {
+            nextPoints.push(mirrored);
+          }
+        }
+      }
+      for (const point of nextPoints) {
+        points.push(point);
+      }
+    }
+    return points;
   };
 
   const applyCell = (cx, cy) => {
@@ -3548,13 +3899,9 @@ function paintCell(x, y, mode, brush, erase) {
   };
 
   const paintWithMirror = (cx, cy) => {
-    applyCell(cx, cy);
-    const mirror = getMirrorPoint(cx, cy);
-    if (mirror) {
-      const [mx, my] = mirror;
-      if (mx !== cx || my !== cy) {
-        applyCell(mx, my);
-      }
+    const points = getMirrorPoints(cx, cy);
+    for (const [px, py] of points) {
+      applyCell(px, py);
     }
   };
 
@@ -3909,7 +4256,7 @@ function runCommand(cmd) {
       break;
 
     case "stats":
-      log(`Gen: ${generation} | Cells: ${grid.size}`);
+      log(`Gen: ${generation} | Cells: ${formatLivingCount(grid.size)}`);
       break;
 
     case "help":
