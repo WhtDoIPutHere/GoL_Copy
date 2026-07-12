@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Game of Life Pattern Library</title>
+<style>
+  /* Basic page styling */
+  body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #111;
+    color: #eee;
+  }
+
+  /* Header section styling */
+  header {
+    padding: 15px;
+    background: #1a1a1a;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /* Search input styling */
+  input {
+    padding: 8px;
+    width: 320px;
+  }
+
+  /* Main content container */
+  .container {
+    padding: 20px;
+    max-width: 2000px;
+    margin: 0 auto;
+  }
+
+  /* Table layout and borders */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* Prevents column jumping */
+  }
+
+  /* Table header styling with sticky positioning */
+  th {
+    background: #222;
+    cursor: pointer;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  /* Cell padding and borders */
+  th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
+    border-right: 1px solid #2a2a2a;
+    text-align: left;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Remove right border from last column */
+  th:last-child, td:last-child {
+    border-right: none;
+  }
+
+  /* Alternating row colors for readability */
+  tbody tr:nth-child(odd) {
+    background: #151515;
+  }
+
+  tbody tr:nth-child(even) {
+    background: #101010;
+  }
+
+  /* Hover effect for table rows */
+  tbody tr:hover {
+    background: #222;
+  }
+
+  /* Prevent text wrapping for non-description cells */
+  td:not(.desc) {
+    white-space: nowrap;
+  }
+
+  /* Line height for table cells */
+  td {
+    line-height: 1.3;
+    min-height: 70px;
+  }
+
+  /* Fixed width for preview column */
+  th:nth-child(1), td:nth-child(1) { width: 80px; text-align: center; }
+
+  /* Fixed width for favorite star column */
+  th:nth-child(2), td:nth-child(2) { width: 40px; text-align: center; }
+
+  /* Fixed width for name column */
+  th:nth-child(3), td:nth-child(3) { width: 80px; }
+
+  /* Flexible width for description column */
+  th:nth-child(4), td:nth-child(4) { width: auto; }
+
+  /* Fixed width for RLE column */
+  th:nth-child(5), td:nth-child(5) { width: 120px; }
+
+  /* Fixed width for rule column */
+  th:nth-child(6), td:nth-child(6) { width: 100px; }
+
+  /* Fixed width for cells column */
+  th:nth-child(7), td:nth-child(7) { width: 80px; text-align: left;}
+
+  /* Fixed width for bounding box column */
+  th:nth-child(8), td:nth-child(8) { width: 120px; }
+
+  /* RLE link styling */
+  td.rle {
+    text-align: center;
+  }
+  td.rle a {
+    color: #8ecae6;
+    text-decoration: underline;
+    font-family: monospace;
+    font-size: 12px;
+  }
+
+  /* Small text styling */
+  .small {
+    font-size: 12px;
+    color: #aaa;
+  }
+
+  /* Description cell with ellipsis and tooltip */
+  .desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: help;
+  }
+
+  /* Rule text styling */
+  .rule {
+    color: #8ecae6;
+    font-family: monospace;
+  }
+
+  /* Bounding box text styling */
+  .bbox {
+    color: #90be6d;
+    font-family: monospace;
+  }
+
+  /* Numeric cell alignment */
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Pagination container styling */
+  .pagination {
+    padding: 10px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  /* General button styling */
+  button {
+    background: #222;
+    color: white;
+    border: 1px solid #333;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+
+  /* Button hover effect */
+  button:hover {
+    background: #333;
+  }
+
+  /* Active tab button styling */
+  #tab-all.active,
+  #tab-recent.active,
+  #tab-favorites.active,
+  #tab-custom.active {
+    background: #555;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h3 style="margin:0; ">Pattern Library</h3>
+  <input id="search" placeholder="Search patterns..." />
+  <button onclick="setTab('all')" id="tab-all">All</button>
+  <button onclick="setTab('recent')" id="tab-recent">Recent</button>
+  <button onclick="setTab('favorites')" id="tab-favorites">Favorites</button>
+  <button onclick="setTab('custom')" id="tab-custom">Custom</button>
+  <button onclick="window.location.href='index.html'">Go to Game of Life</button>
+</header>
+
+<div class="container">
+  <table>
+    <thead>
+      <tr>
+        <th>Preview</th>
+        <th>★</th>
+        <th onclick="sortBy('Name')" id="h-Name">Name</th>
+        <th onclick="sortBy('Description')" id="h-Description">Description</th>
+        <th>RLE</th>
+        <th onclick="sortBy('Rule')" id="h-Rule">Rule</th>
+        <th onclick="sortBy('Cells')" id="h-Cells">Cells</th>
+        <th onclick="sortBy('BBox')" id="h-BBox">Bounding Box</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
