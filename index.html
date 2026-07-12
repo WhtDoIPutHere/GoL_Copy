@@ -1,228 +1,4535 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Game of Life Pattern Library</title>
-<style>
-  /* Basic page styling */
-  body {
-    margin: 0;
-    font-family: sans-serif;
-    background: #111;
-    color: #eee;
+  <title>Game of Life - Natan</title>
+  
+  <style>
+  /* Page background and font settings */
+  body { margin: 0; background: #111; color: white; font-family: sans-serif; }
+  
+  /* UI panel hide/show animation */
+  #ui.hidden {
+    transform: translateX(-101%);
   }
-
-  /* Header section styling */
-  header {
-    padding: 15px;
-    background: #1a1a1a;
+  /* UI panel positioning and appearance */
+  #ui {
+    transition: transform 0.3s ease;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.7);
+    padding: 10px;
+    border-radius: 10px;
+  }
+  /* UI row layout */
+  #ui .row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  
+  /* Canvas display settings */
+  canvas { display: block; }
+  
+  /* Button and input margins */
+  button, input, select { margin: 5px; }
+  /* Play button color states */
+  #playBtn.paused { background: #aa3333; }
+  #playBtn.running { background: #33aa33; }
+  /* Grid button color states */
+  #gridBtn.paused { background: #aa3333; }
+  #gridBtn.running { background: #33aa33; }
+  /* Erase button color states */
+  #eraseBtn.paused { background: #aa3333; }
+  #eraseBtn.running { background: #33aa33; }
+  /* Full cell button color states */
+  #fullCellBtn.paused { background: #aa3333; }
+  #fullCellBtn.running { background: #33aa33; }
+  /* Heatmap button color states */
+  #heatmapBtn.paused { background: #aa3333; }
+  #heatmapBtn.running { background: #33aa33; }
+  /* Colors button color states */
+  #colorsBtn.paused { background: #aa3333; }
+  #colorsBtn.running { background: #33aa33; }
+  /* Rules button color states */
+  #rulesBtn.paused { background: #aa3333; }
+  #rulesBtn.running { background: #33aa33; }
+  /* Ghost button color states */
+  #ghostBtn.paused { background: #aa3333; }
+  #ghostBtn.running { background: #33aa33; }
+  
+  /* Shortcut dropdown container */
+  .shortcut-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  /* Shortcut dropdown content */
+  .shortcut-content {
+    display: none;
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.9);
+    min-width: 200px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+    z-index: 1000;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    top: 100%;
+    left: 0;
+  }
+  .settings-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  #settingsPanel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: rgba(10, 10, 10, 0.96);
+    border: 1px solid #555;
+    border-radius: 10px;
+    padding: 12px;
+    min-width: 260px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+    z-index: 1000;
+  }
+  #settingsPanel label {
     display: flex;
-    gap: 10px;
     align-items: center;
-  }
-
-  /* Search input styling */
-  input {
-    padding: 8px;
-    width: 320px;
-  }
-
-  /* Main content container */
-  .container {
-    padding: 20px;
-    max-width: 2000px;
-    margin: 0 auto;
-  }
-
-  /* Table layout and borders */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed; /* Prevents column jumping */
-  }
-
-  /* Table header styling with sticky positioning */
-  th {
-    background: #222;
+    gap: 8px;
+    margin-bottom: 8px;
     cursor: pointer;
-    position: sticky;
-    top: 0;
-    z-index: 5;
   }
-
-  /* Cell padding and borders */
-  th, td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #333;
-    border-right: 1px solid #2a2a2a;
-    text-align: left;
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  #settingsPanel input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: lime;
   }
-
-  /* Remove right border from last column */
-  th:last-child, td:last-child {
-    border-right: none;
-  }
-
-  /* Alternating row colors for readability */
-  tbody tr:nth-child(odd) {
-    background: #151515;
-  }
-
-  tbody tr:nth-child(even) {
-    background: #101010;
-  }
-
-  /* Hover effect for table rows */
-  tbody tr:hover {
-    background: #222;
-  }
-
-  /* Prevent text wrapping for non-description cells */
-  td:not(.desc) {
-    white-space: nowrap;
-  }
-
-  /* Line height for table cells */
-  td {
-    line-height: 1.3;
-    min-height: 70px;
-  }
-
-  /* Fixed width for preview column */
-  th:nth-child(1), td:nth-child(1) { width: 80px; text-align: center; }
-
-  /* Fixed width for favorite star column */
-  th:nth-child(2), td:nth-child(2) { width: 40px; text-align: center; }
-
-  /* Fixed width for name column */
-  th:nth-child(3), td:nth-child(3) { width: 80px; }
-
-  /* Flexible width for description column */
-  th:nth-child(4), td:nth-child(4) { width: auto; }
-
-  /* Fixed width for RLE column */
-  th:nth-child(5), td:nth-child(5) { width: 120px; }
-
-  /* Fixed width for rule column */
-  th:nth-child(6), td:nth-child(6) { width: 100px; }
-
-  /* Fixed width for cells column */
-  th:nth-child(7), td:nth-child(7) { width: 80px; text-align: left;}
-
-  /* Fixed width for bounding box column */
-  th:nth-child(8), td:nth-child(8) { width: 120px; }
-
-  /* RLE link styling */
-  td.rle {
-    text-align: center;
-  }
-  td.rle a {
-    color: #8ecae6;
-    text-decoration: underline;
-    font-family: monospace;
-    font-size: 12px;
-  }
-
-  /* Small text styling */
-  .small {
+  #settingsPanel .settings-note {
     font-size: 12px;
     color: #aaa;
+    line-height: 1.4;
   }
-
-  /* Description cell with ellipsis and tooltip */
-  .desc {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: help;
+  /* Show dropdown on hover */
+  .shortcut-dropdown:hover .shortcut-content {
+    display: block;
   }
-
-  /* Rule text styling */
-  .rule {
-    color: #8ecae6;
-    font-family: monospace;
-  }
-
-  /* Bounding box text styling */
-  .bbox {
-    color: #90be6d;
-    font-family: monospace;
-  }
-
-  /* Numeric cell alignment */
-  .num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Pagination container styling */
-  .pagination {
-    padding: 10px;
+  /* Individual shortcut item layout */
+  .shortcut-item {
     display: flex;
-    gap: 8px;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 2px;
+  }
+  /* Key styling in shortcuts */
+  .shortcut-item span:first-child {
+    color: lime;
+    font-weight: bold;
+  }
+  
+  /* Custom rule checkbox appearance */
+  .rule-checkbox { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #444; border-radius:4px; background:#161616; color:#ddd; font-size:12px; cursor:pointer; position:relative; }
+  .rule-checkbox input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+  .rule-checkbox .rule-num { pointer-events:none; }
+  .rule-checkbox .rule-check { position:absolute; font-size:14px; color:lime; pointer-events:none; opacity:0; }
+  .rule-checkbox input:checked + .rule-num { display:none; }
+  .rule-checkbox input:checked + .rule-num + .rule-check { opacity:1; }
+  
+  /* Rules panel popup */
+  #rulesPanel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 10px;
+    background: rgba(0,0,0,0.85);
+    padding: 10px;
+    border-radius: 8px;
+    z-index: 999;
+    width: 260px;
+  }
+
+  #clipboardMenu, #stateMenu {
+    display: none;
+    position: fixed;
+    background: rgba(0,0,0,0.9);
+    padding: 10px;
+    border-radius: 8px;
+    z-index: 1001;
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #555;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+    font-size: 12px;
+  }
+
+  #clipboardMenu > div:first-child, #stateMenu > div:first-child {
+    color: lime;
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+
+  #clipboardMenu .clipboard-item, #stateMenu .clipboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    padding: 6px 8px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.03);
+    font-size: 12px;
+    transition: background 0.15s;
+  }
+
+  #clipboardMenu .clipboard-item:hover, #stateMenu .clipboard-item:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: #555;
+  }
+
+  #clipboardMenu .clipboard-number {
+    color: lime;
+    font-weight: bold;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  #clipboardMenu .clipboard-box {
+    border: 1px solid #666;
+    background: rgba(0,0,0,0.3);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+    color: #ccc;
+  }
+
+  #clipboardMenu .clipboard-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  #clipboardMenu .clipboard-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  #clipboardMenu .clipboard-action-btn {
+    border: 1px solid #444;
+    background: #222;
+    color: #ddd;
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 10px;
+    cursor: pointer;
+  }
+
+  #clipboardMenu .clipboard-action-btn:hover {
+    background: #333;
+    color: #fff;
+  }
+
+  #clipboardMenu .clipboard-clear, #stateMenu .clipboard-clear {
+    margin-top: 8px;
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #555;
+    background: #2a2a2a;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  #clipboardMenu .clipboard-clear:hover, #stateMenu .clipboard-clear:hover {
+    background: #3a3a3a;
+  }
+
+  /* Stats display styling */
+  #stats { font-size: 12px; margin-top: 6px; }
+  /* Stats panel layout */
+  #statsPanel, #statsPanel2 {
+    display:flex;
+    flex-direction:column;
+    font-size:12px;
+    gap:4px;
+    padding:6px;
+    border:1px solid #555;
+    background:rgba(0,0,0,0.4);
+    border-radius:0px;
+    min-width:160px;
+  }
+  
+  /* Terminal output window */
+  #terminal {
+    position: fixed;
+    bottom: 37px;
+    right: 10px;
+    width: 420px;
+    height: 133px;
+    background: rgba(0,0,0,0.85);
+    color: #00ff88;
+    font-family: monospace;
+    font-size: 11px;
+    padding: 8px;
+    overflow-y: auto;
+    border: 1px solid #333;
+    z-index: 9999;
+  }
+  /* Terminal input field */
+  #terminalInput {
+    position: fixed;
+    bottom: 5px;
+    right: 5px;
+    width: 428px;
+    height: 24px;
+    background: black;
+    color: #00ff88;
+    border: 1px solid #333;
+    font-family: monospace;
+    font-size: 11px;
+    padding-left: 6px;
+    z-index: 10000;
+  }
+
+  /* Expandable graph modal */
+  #graphModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(3px);
+    z-index: 11000;
+    align-items: center;
     justify-content: center;
   }
 
-  /* General button styling */
-  button {
+  #graphModal.active {
+    display: flex;
+  }
+
+  #graphContainer {
+    background: rgba(12, 12, 12, 0.98);
+    border: 1px solid #444;
+    border-radius: 12px;
+    padding: 18px;
+    width: 90%;
+    height: 88%;
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  }
+
+  #graphHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #333;
+    color: #eee;
+  }
+
+  #graphHeader h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #00ff00;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  #graphCloseBtn {
     background: #222;
     color: white;
     border: 1px solid #333;
-    padding: 5px 10px;
+    padding: 8px 16px;
+    border-radius: 6px;
     cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.15s ease;
   }
 
-  /* Button hover effect */
-  button:hover {
+  #graphCloseBtn:hover {
     background: #333;
   }
 
-  /* Active tab button styling */
-  #tab-all.active,
-  #tab-recent.active,
-  #tab-favorites.active,
-  #tab-custom.active {
-    background: #555;
+  #expandedGraphPlayBtn {
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #222;
+    color: white;
+    transition: all 0.15s ease;
   }
 
-</style>
+  #expandedGraphPlayBtn.paused {
+    background: #aa3333;
+    color: white;
+    border-color: #aa3333;
+  }
+
+  #expandedGraphPlayBtn.running {
+    background: #33aa33;
+    color: white;
+    border-color: #33aa33;
+  }
+
+  #graphControls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  #graphControls label {
+    color: #ccc;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  #graphControls input[type="range"] {
+    flex: 1;
+    width: 100%;
+    min-width: 320px;
+  }
+
+  #graphScrollWrapper {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #080808;
+  }
+
+  #expandedGraphCanvas {
+    display: block;
+    height: 100%;
+    background: #050505;
+  }
+
+  #graphInfoPanel {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .graphInfoBlock {
+    background: rgba(0, 0, 0, 0.88);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .graphInfoBlock h3 {
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+    color: #0f0;
+    letter-spacing: 0.4px;
+  }
+
+  .graphInfoLine {
+    margin: 4px 0;
+    font-size: 0.92rem;
+    color: #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .graphInfoTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2px;
+    font-size: 0.9rem;
+  }
+
+  .graphInfoTable th,
+  .graphInfoTable td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #2a2a2a;
+    vertical-align: top;
+  }
+
+  .graphInfoTable thead th {
+    color: #8fe6ff;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .graphInfoTable tbody th {
+    color: #ddd;
+    font-weight: 600;
+    width: 54%;
+  }
+
+  .graphInfoTable td {
+    color: #ddd;
+  }
+
+  .graphInfoTable tr:last-child th,
+  .graphInfoTable tr:last-child td {
+    border-bottom: none;
+  }
+
+  .graphJumpLink {
+    color: #70b4ff;
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 600;
+  }
+
+  .graphJumpLink:hover {
+    color: #8fff8f;
+  }
+
+  .graphMetricLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #aaa;
+  }
+
+  #graphCanvas {
+    cursor: pointer;
+    transition: filter 0.2s ease;
+  }
+
+  #graphCanvas:hover {
+    filter: brightness(1.2);
+  }
+  </style>
 </head>
 <body>
 
-<header>
-  <h3 style="margin:0; ">Pattern Library</h3>
-  <input id="search" placeholder="Search patterns..." />
-  <button onclick="setTab('all')" id="tab-all">All</button>
-  <button onclick="setTab('recent')" id="tab-recent">Recent</button>
-  <button onclick="setTab('favorites')" id="tab-favorites">Favorites</button>
-  <button onclick="setTab('custom')" id="tab-custom">Custom</button>
-  <button onclick="window.location.href='gol.html'">Go to Game of Life</button>
-</header>
+<div id="terminal" style="
+  position: fixed;
+  bottom: 37px;
+  right: 10px;
+  width: 420px;
+  height: 133px;
+  background: rgba(0,0,0,0.85);
+  color: #00ff88;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid #333;
+  z-index: 9999;
+"></div>
 
-<div class="container">
-  <table>
-    <thead>
-      <tr>
-        <th>Preview</th>
-        <th>★</th>
-        <th onclick="sortBy('Name')" id="h-Name">Name</th>
-        <th onclick="sortBy('Description')" id="h-Description">Description</th>
-        <th>RLE</th>
-        <th onclick="sortBy('Rule')" id="h-Rule">Rule</th>
-        <th onclick="sortBy('Cells')" id="h-Cells">Cells</th>
-        <th onclick="sortBy('BBox')" id="h-BBox">Bounding Box</th>
-      </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
-  <div class="pagination" id="pagination"></div>
+<input id="terminalInput" placeholder="Type command..." style="
+  position: fixed;
+  bottom: 5px;
+  right: 5px;
+  width: 428px;
+  height: 24px;
+  background: black;
+  color: #00ff88;
+  border: 1px solid #333;
+  font-family: monospace;
+  font-size: 11px;
+  padding-left: 6px;
+  z-index: 10000;
+">
+
+<div id="ui">
+    <button id="collapseBtn" onclick="toggleUI()" style="position:absolute; right:-50px; top:0; width:30px; height:30px; border-radius:0 5px 5px 0; background:rgba(0,0,0,0.7); color:white; border:none; cursor:pointer;">☰</button>
+  <div class="row">
+    <button id="playBtn" class="paused" onclick="togglePlay()">Paused</button>
+    <button id="gridBtn" class="paused" onclick="toggleGrid()">Grid</button>
+    
+    <button id="eraseBtn" class="paused" onclick="toggleErase()">Erase</button>
+    
+    <button id="fullCellBtn" class="paused" onclick="toggleFullCell()">Full Cell</button>
+    <button id="colorsBtn" class="paused" onclick="toggleColors()">Colors</button>
+    <button id="heatmapBtn" class="paused" onclick="toggleHeatmap()">Heatmap</button>
+    <button id="ghostBtn" class="paused" onclick="toggleGhost()">Ghost</button>
+    <button id="rulesBtn" class="paused" onclick="toggleRules()">Rules</button>
+    <button id="stepBtn" onclick="doStep()">Step</button>
+    <button id="resetViewBtn" onclick="resetView()">Reset View</button>
+    <button id="dataBtn" onclick="toggleDataPanel()">Data</button>
+    <button id="wallBtn" onclick="toggleWall()">Wall</button>
+    <button onclick="clearGrid()">Clear</button>
+  </div>
+
+  <div class="row">
+    <label style="margin:0 6px 0 0;">Speed:</label>
+    <input type="range" min="1" max="60" value="10" id="speed">
+
+    <label style="margin:0 6px 0 0;">Brush:</label>
+    <input type="range" min="1" max="10" value="1" id="brushSize">
+    <div id="chaosDensityContainer" style="display:none; align-items:center; margin-left:10px;">
+  <label style="margin:0 6px 0 0;">Density:</label>
+  <input type="range" min="1" max="60" value="25" id="chaosDensity" style="width:80px;">
+</div>
+    <!-- Shortcuts moved to the top row and styled exactly like Pattern Library -->
+    
+    <div class="shortcut-dropdown">
+        <button id="shortcut-btn" style="background: #445;">Shortcuts</button>
+      <div class="shortcut-content">
+         <div style="font-weight: bold; color: lime; margin: 6px 0;">Key Shortcuts:</div>
+        <div class="shortcut-item"><span>Space</span> <span>Play/Pause</span></div>
+        <div class="shortcut-item"><span>[ and ]</span> <span>Brush Size</span></div>
+        <div class="shortcut-item"><span>S + [ and ]</span> <span>Speed</span></div>
+        <div class="shortcut-item"><span>E</span> <span>Erase Mode</span></div>
+        <div class="shortcut-item"><span>F</span> <span>Full Cell</span></div>
+        <div class="shortcut-item"><span>G</span> <span>Toggle Grid</span></div>
+        <div class="shortcut-item"><span>B</span> <span>Reset Brush</span></div>
+        <div class="shortcut-item"><span>C</span> <span>Cycle Colors</span></div>
+        <div class="shortcut-item"><span>R</span> <span>Toggle Rules</span></div>
+        <div class="shortcut-item"><span>T</span> <span>Toggle Ghost</span></div>
+        <div class="shortcut-item"><span>H</span> <span>Hide UI</span></div>
+        <div class="shortcut-item"><span>X</span> <span>Step Generation</span></div>
+        <div class="shortcut-item"><span>0</span> <span>Reset View</span></div>
+        <div class="shortcut-item"><span>Ctrl + D</span> <span>Toggle Data Panel</span></div>
+        <div class="shortcut-item"><span>Ctrl + Alt + W</span> <span>Toggle Wall</span></div>
+        <div class="shortcut-item"><span>Delete/Backspace</span> <span>Clear Grid</span></div>
+        <div class="shortcut-item"><span>p</span> <span>Block Ghost</span></div>
+        <div class="shortcut-item"><span>v</span> <span>Rotate Brush</span></div>
+        <div class="shortcut-item"><span>m</span> <span>Cycle Pattern Mirror</span></div>
+        <div class="shortcut-item"><span>Shift + M</span> <span>Draw Mirror Line</span></div>
+        <div class="shortcut-item"><span>Ctrl + Shift + M</span> <span>Ortho Mirror Line</span></div>
+        <div class="shortcut-item"><span>D</span> <span>Deselect</span></div>
+        <div class="shortcut-item"><span>Ctrl + Drag</span> <span>Select Area</span></div>
+        <div class="shortcut-item"><span>Ctrl + A</span> <span>Select All</span></div>
+        <div class="shortcut-item"><span>W</span> <span>Toggle Wand Mode</span></div>
+        <div class="shortcut-item"><span>Click (Wand)</span> <span>Replace Selection</span></div>
+        <div class="shortcut-item"><span>Shift + Click (Wand)</span> <span>Add Blob</span></div>
+        <div class="shortcut-item"><span>Ctrl + Click (Wand)</span> <span>Subtract Blob</span></div>
+        <div class="shortcut-item"><span>Ctrl + C</span> <span>Copy Selected Area</span></div>
+        <div class="shortcut-item"><span>Ctrl + X</span> <span>Cut Selected Area</span></div>
+        <div class="shortcut-item"><span>Ctrl + V</span> <span>Paste Clipboard Item</span></div>
+        <div class="shortcut-item"><span>D</span> <span>Deselect Area</span></div>
+        <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
+        <div class="shortcut-item"><span>Ctrl + Z</span> <span>Undo</span></div>
+        <div class="shortcut-item"><span>Ctrl + Y</span> <span>Redo</span></div>
+        <div style="font-weight: bold; color: lime; margin: 6px 0;">Terminal Commands:</div>
+        <div class="shortcut-item"><span>play</span> <span>Start simulation</span></div>
+        <div class="shortcut-item"><span>pause</span> <span>Pause simulation</span></div>
+        <div class="shortcut-item"><span>step</span> <span>Advance 1 generation</span></div>
+        <div class="shortcut-item"><span>ff &lt;steps&gt;</span> <span>Fast forward X generations</span></div>
+        <div class="shortcut-item"><span>speed &lt;X&gt;</span> <span>Set simulation speed</span></div>
+        <div class="shortcut-item"><span>brush &lt;X&gt;</span> <span>Set brush size</span></div>
+        <div class="shortcut-item"><span>rule &lt;B3/S23&gt;</span> <span>Set rule string</span></div>
+        <div class="shortcut-item"><span>load &lt;file.rle&gt;</span> <span>Load pattern file</span></div>
+        <div class="shortcut-item"><span>stats</span> <span>Show generation & cell count</span></div>
+        <div class="shortcut-item"><span>clear</span> <span>Clear terminal output</span></div>
+        <div class="shortcut-item"><span>help</span> <span>Show all commands</span></div>
+      </div>
+    </div>
+    
+    <button onclick="saveGridToLibrary()" style="background: #33aa33;">Save Grid</button>
+    <button onclick="saveSelectionToLibrary()" style="background: #33aa33;">Save Selection</button>
+    <button onclick="saveBoardStateToStorage()" style="background: #3366cc;">Save State</button>
+    <button onclick="loadBoardStateFromStorage()" style="background: #3366cc;">Load State</button>
+    <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
+    <button onclick="window.open('https://copy.sh/life/examples/','_blank')" style="background: #445;">RLE Library</button>
+    <button onclick="window.open('library.html','_blank')" style="background:#445;">Pattern Database</button>
+  </div>
+
+  <div class="row">
+    <label style="margin:0 6px 0 0;">Pattern:</label>
+    <select id="patternSelect">
+      <option value="draw">Brush</option>
+      <option value="chaos">Random</option>
+    </select>
+    <div id="clipboardMenu">
+      <div>Clipboard</div>
+      <div id="clipboardItems" style="display:flex; flex-direction:column;"></div>
+      <div id="clipboardEmpty" style="color:#aaa; font-size:12px;">No copied items yet.</div>
+    </div>
+    <div id="stateMenu">
+      <div>Saved States</div>
+      <div id="stateItems" style="display:flex; flex-direction:column;"></div>
+      <div id="stateEmpty" style="color:#aaa; font-size:12px;">No saved states yet.</div>
+    </div>
+<div style="display:flex; align-items:center; gap:6px; position:relative;">
+  <textarea id="rleInput"
+    style="width:150px; height:15px; resize:none;"
+    placeholder="Paste RLE"></textarea>
+  <button onclick="importRLE()">Import</button>
+  <div class="settings-dropdown">
+    <button id="settingsBtn" onclick="toggleSettingsPanel(event)" style="background:#445;">Settings</button>
+    <div id="settingsPanel">
+        <label>
+        <input type="checkbox" id="pauseOnInactiveCheckbox" onchange="togglePauseOnInactive(this.checked)">
+        Pause when tab is inactive
+      </label>
+      <div class="settings-note">When enabled, the simulation automatically pauses while the browser tab is hidden and resumes when it becomes active again.</div>
+      <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span style="display:inline-flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="autoPauseStaticCheckbox" onchange="toggleAutoPauseWhenStatic(this.checked)">
+          Auto-pause when stable for
+        </span>
+        <input type="number" id="autoPauseStaticThreshold" min="1" placeholder="10" style="width:52px; padding:3px; font-size:12px;">
+        <span>generations</span>
+      </label>
+      <div class="settings-note">When enabled, the simulation auto-pauses after no births or deaths, or when the total cell count stays unchanged for the entered number of generations. Leave blank for 10.</div>
+      <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px;">
+        <span>Graph generation scale</span>
+        <select id="graphGenerationScaleSelect" style="padding:3px; font-size:12px;">
+          <option value="default">Default</option>
+          <option value="decade">Decades</option>
+          <option value="century">Centuries</option>
+          <option value="millennium">Millennia</option>
+        </select>
+      </label>
+      <div class="settings-note">Choose how generation counts are displayed on the graph and in graph summaries. Values are rounded to three decimals.</div>
+      <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px;">
+        <span>Living count display</span>
+        <select id="livingCountDisplaySelect" style="padding:3px; font-size:12px;">
+          <option value="default">Default</option>
+          <option value="scientific">Scientific</option>
+        </select>
+      </label>
+      <div class="settings-note">Choose how the living cell count is shown in the status bar and summaries. Scientific notation is rounded to three decimal places.</div>
+    </div>
+  </div>
+</div>
+  </div>
+
+  <div id="stats" style="font-size: 12px; margin-top: 6px;">
+    <span>Generation:</span> <span id="genCount">0</span> <span id="generationScaleLabel" style="color:#8fe6ff;">(generations)</span> | Living: <span id="liveCount">0</span> | FPS: <span id="fpsCount">0</span>
+  </div>
+  
+<div class="row" style="align-items:center; margin-top: 8px; gap:10px;">
+  <canvas id="minimapCanvas" width="80" height="80" style="border: 1px solid #555;"></canvas>
+  <canvas id="graphCanvas" width="200" height="80" style="border: 1px solid #555;"></canvas>
+
+  <!-- NEW STATS COLUMN -->
+  <div id="statsPanel" style="
+    display:flex;
+    flex-direction:column;
+    font-size:12px;
+    gap:4px;
+    padding:6px;
+    border:1px solid #555;
+    background:rgba(0,0,0,0.4);
+    border-radius:0px;
+    min-width:160px;
+  ">
+    <div><b>Max:</b> <span id="statPeak">0</span></div>
+    <div><b>Low:</b> <span id="statLow">0</span></div>
+    <div><b>Avg:</b> <span id="statAvg">0</span></div>
+  </div>
+  
+  <div id="statsPanel2" style="
+    display:flex;
+    flex-direction:column;
+    font-size:12px;
+    gap:4px;
+    padding:6px;
+    border:1px solid #555;
+    background:rgba(0,0,0,0.4);
+    border-radius:0px;
+    min-width:160px;
+  ">
+    <div><b>State:</b> <span id="statTrend">-</span></div>
+    <div><b>Slope:</b> <span id="statSlope">0</span></div>
+    <div><b>Stability:</b> <span id="statStability">-</span></div>
+  </div>
+  <div id="dataPanel" style="
+    display:none;
+    position:fixed;
+    left:0;
+    top:0;
+    flex-direction:column;
+    font-size:12px;
+    gap:4px;
+    padding:6px;
+    border:1px solid #555;
+    background:rgba(0,0,0,0.9);
+    border-radius:8px;
+    min-width:220px;
+    z-index:1002;
+  ">
+    <div><b>Grid Cells:</b> <span id="dataLive">0</span></div>
+    <div><b>Grid BB:</b> <span id="dataBB">0x0</span></div>
+    <div><b>Grid Area:</b> <span id="dataArea">0</span></div>
+    <div><b>Density:</b> <span id="dataDensity">0%</span></div>
+    <hr style="border:none; border-top:1px solid #555; margin:4px 0;">
+    <div><b>Selection Cells:</b> <span id="dataSelLive">-</span></div>
+    <div><b>Selection BB:</b> <span id="dataSelBB">-</span></div>
+    <div><b>Selection Area:</b> <span id="dataSelArea">-</span></div>
+    <div><b>Selection Density:</b> <span id="dataSelDensity">-</span></div>
+  </div>
 </div>
 
-<script src="script.js"></script>
+  <!-- Rules panel: absolute so opening doesn't change UI layout -->
+  <div id="rulesPanel">
+    <div style="font-size:12px; margin-bottom:6px;">Survive (alive stays alive):</div>
+    <div id="surviveBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
+    <div style="font-size:12px; margin-bottom:6px;">Birth (dead becomes alive):</div>
+    <div id="birthBoxes" style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;"></div>
+    <div style="display:flex; gap:8px; justify-content:space-between; align-items:center;">
+      <div style="display:flex; gap:6px;">
+        <select id="rulePreset" onchange="applyRulePreset(this.value)" style="font-size:11px; padding:2px;">
+          <option value="">Presets...</option>
+          <option value="B3/S23">Conway's Game of Life</option>
+          <option value="B36/S23">HighLife</option>
+          <option value="B2/S">Seeds</option>
+          <option value="B3/S012345678">Life without Death</option>
+          <option value="B3/S12">Flock</option>
+          <option value="B3/S1234">Maze</option>
+          <option value="B3/S12345">Mazectric</option>
+          <option value="B3/S234">Coral</option>
+          <option value="B3/S245">Walled Cities</option>
+          <option value="B3/S45678">Gnarl</option>
+          <option value="B3/S4567">Stains</option>
+          <option value="B3/S456">Day & Night</option>
+          <option value="B3/S45678">Diamoeba</option>
+          <option value="B1357/S1357">Replicator</option>
+          <option value="B34/S34">34 Life</option>
+          <option value="B3678/S34678">Assimilation</option>
+          <option value="B357/S1358">Amoeba</option>
+          <option value="B357/S238">Pseudo Life</option>
+        </select>
+        <button onclick="resetRules()" title="Reset rules to default B3/S23">Reset</button>
+      </div>
+      <div style="font-size:12px; align-self:center;">Current rule: <span id="ruleString">B3/S23</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Expandable graph modal -->
+<div id="graphModal">
+  <div id="graphContainer">
+    <div id="graphHeader">
+      <h2>Population History</h2>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button id="expandedGraphPlayBtn" onclick="togglePlay()">Paused</button>
+        <button id="graphCloseBtn" onclick="closeGraphModal()">Close</button>
+      </div>
+    </div>
+    <div id="graphControls">
+      <label for="expandedGraphSpeed">Speed</label>
+      <input id="expandedGraphSpeed" type="range" min="1" max="120" value="10">
+    </div>
+    <div id="graphScrollWrapper">
+      <canvas id="expandedGraphCanvas"></canvas>
+    </div>
+    <div id="graphInfoPanel"></div>
+  </div>
+</div>
+
+<canvas id="canvas"></canvas>
+<script src="patterns.js"></script>
+<script>
+
+// Global variables for logging, canvas setup, and game state
+let lastLogTime = 0; // Timestamp for action logging rate limiting
+const canvas = document.getElementById("canvas"); // Main canvas element
+const ctx = canvas.getContext("2d"); // 2D rendering context
+
+// Set canvas size to full window
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let cellSize = 20; // Size of each cell in pixels
+let offsetX = 0; // Horizontal pan offset
+let offsetY = 0; // Vertical pan offset
+
+let running = false; // Whether simulation is running
+let pauseOnInactive = false; // Automatically pause when tab becomes inactive
+let autoPauseWhenStatic = false; // Automatically pause when grid is stable for a while
+let graphGenerationScale = "default"; // Display scale for graph generation labels: default/decade/century/millennium
+let livingCountDisplay = "default"; // Display mode for living cell count: default/scientific
+let staticGenerationCount = 0; // Consecutive generations with no births or deaths
+let samePopulationCount = 0; // Consecutive generations with unchanged population
+let pausedByInactivity = false; // Whether the pause was triggered by tab inactivity
+let grid = new Set(); // Set of living cell coordinates as strings "x,y"
+let generation = 0; // Current generation number
+
+let drawing = false; // Whether user is currently drawing
+let panning = false; // Whether user is panning the view
+let lastDrawnCell = null; // Last cell that was drawn to prevent duplicates
+let lastDrawCoords = null; // Last mouse coordinates for drawing
+
+let eraseMode = false; // Whether drawing erases cells instead of adding
+let wandMode = false; // Whether user is in wand selection mode
+let previousPattern = "draw"; // Previously selected pattern
+let showGrid = false; // Whether to show grid lines
+let fullCellMode = false; // Whether cells fill completely or show borders
+let orthoAxis = null; // Axis for orthogonal drawing ("x" or "y")
+let colorMode = false; // Whether to color cells by age
+let heatmapMode = false; // Whether to show population heatmap
+let ghostMode = false; // Whether to show pattern ghost preview
+let populationHistory = []; // History of population counts for graphs
+let cellAges = new Map(); // Map of cell coordinates to their age
+let mouseX = 0; // Current mouse X position
+let mouseY = 0; // Current mouse Y position
+let patternGhostPreview = true; // Whether to show pattern preview on hover
+let undoStack = []; // Stack for undo snapshots
+let redoStack = []; // Stack for redo snapshots
+const MAX_HISTORY = 67; // Maximum undo/redo history size
+
+let sHeld = false; // Whether 's' key is currently held down for speed adjustment
+let showDataPanel = false; // Whether the data panel is visible
+
+let patternRotation = 0; // Rotation angle for patterns (0, 90, 180, 270)
+let patternMirror = 0; // Mirror mode: 0 = none, 1 = horizontal, 2 = vertical
+let mirrorLine = null; // Last placed mirror line endpoints for reflection
+let mirrorLines = []; // Stored mirror line endpoints (up to 2)
+let mirrorLineMode = false; // Whether mirror line placement mode is active
+let mirrorLineStart = null; // Starting point for mirror line placement
+let mirrorLinePlacing = false; // Whether user is currently dragging a mirror line
+let mirrorLineConstrained = false; // Whether the current mirror line is snapped to 45° increments
+let selectionActive = false; // Whether user is currently dragging a clipboard selection
+let selectionStart = null; // Selection start coordinates
+let selectionEnd = null; // Selection end coordinates
+let selectionRect = null; // Completed selection rectangle
+let selectedCells = new Set(); // Current selected cell keys
+let clipboardHistory = []; // Last copied/cut shapes
+let savedBoardStates = getSavedBoardStateEntries(); // Saved board states for later loading
+
+let wallRegions = new Set(); // Set of wall cell coordinates as strings "x,y"
+
+function getSnappedMirrorLineEnd(start, current) {
+  const dx = current[0] - start[0];
+  const dy = current[1] - start[1];
+  if (dx === 0 && dy === 0) return current;
+  const angle = Math.atan2(dy, dx);
+  const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+  const length = Math.hypot(dx, dy);
+  return [
+    Math.round(start[0] + Math.cos(snappedAngle) * length),
+    Math.round(start[1] + Math.sin(snappedAngle) * length)
+  ];
+}
+
+// Conway's Game of Life rules (B3/S23)
+let survivalSet = new Set([2,3]); // Neighbors needed to survive
+let birthSet = new Set([3]); // Neighbors needed to be born
+
+let fps = 0; // Current frames per second
+let frameCount = 0; // Frame counter for FPS calculation
+let lastFpsTime = performance.now(); // Last FPS update time
+
+let drawCellCount = 0; // Cells drawn in current session
+let eraseCellCount = 0; // Cells erased in current session
+
+// Object to store loaded patterns
+const patterns = {};
+
+if (!window.PATTERN_DATA) {
+  console.error("PATTERN_DATA failed to load!");
+}
+
+async function loadPatternFromURL() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const customId = urlParams.get('custom');
+  if (customId) {
+    await loadPatternFromCustom(customId);
+    return;
+  }
+
+  const fileName = urlParams.get('file');
+  if (!fileName) {
+    return; // No file parameter, nothing to load
+  }
+
+  try {
+    // Fetch the RLE file from the patterns directory
+    const response = await fetch(`patterns/${fileName}`);
+    if (!response.ok) {
+      throw new Error(`Failed to load pattern file: ${response.status} ${response.statusText}`);
+    }
+    
+    const rleText = await response.text();
+    
+    // Parse the RLE
+    let cells = parseRLE(rleText);
+    if (cells.length === 0) {
+      throw new Error("No cells found in RLE file");
+    }
+
+    // Clear current grid
+    grid.clear();
+    cellAges.clear();
+    generation = 0;
+    populationHistory = [];
+    updateStats();
+    updateGraphStats();
+
+    // Place loaded pattern using its natural coordinates
+    for (let [dx, dy] of cells) {
+      const k = key(dx, dy);
+      grid.add(k);
+      cellAges.set(k, 0);
+    }
+
+    // Fit the loaded pattern to the screen
+    fitPatternToScreen(cells);
+    log(`Loaded pattern from URL: ${fileName} (${cells.length} cells)`, "action");
+    log("Auto fit shape to screen", "system");
+    
+    // Update UI
+    updateGridButton();
+    updateFullCellButton();
+    updateEraseButton();
+    updateColorButton();
+    updateHeatmapButton();
+    updateStats();
+    
+  } catch (e) {
+    console.error("Error loading pattern from URL:", e);
+    alert("Error loading pattern from URL: " + e.message);
+  }
+}
+
+async function loadPatternFromCustom(customId) {
+  const list = getCustomPatterns();
+  const entry = list.find(p => p.id === customId || p["Pattern File"] === `custom:${customId}`);
+  if (!entry) {
+    alert("Custom pattern not found.");
+    return;
+  }
+
+  const cells = entry.cells || [];
+  if (!cells.length) {
+    alert("Custom pattern is empty.");
+    return;
+  }
+
+  grid.clear();
+  cellAges.clear();
+  generation = 0;
+  populationHistory = [];
+  updateStats();
+  updateGraphStats();
+
+  for (let [dx, dy] of cells) {
+    const k = key(dx, dy);
+    grid.add(k);
+    cellAges.set(k, 0);
+  }
+
+  fitPatternToScreen(cells);
+  log(`Loaded custom pattern: ${entry.Name || entry.id} (${cells.length} cells)`, "action");
+  log("Auto fit shape to screen", "system");
+
+  updateGridButton();
+  updateFullCellButton();
+  updateEraseButton();
+  updateColorButton();
+  updateHeatmapButton();
+  updateStats();
+}
+
+async function loadPatternFromFile(fileName) {
+  try {
+    const response = await fetch(`patterns/${fileName}`);
+    if (!response.ok) {
+      throw new Error(`Failed to load pattern file: ${response.status} ${response.statusText}`);
+    }
+
+    const rleText = await response.text();
+    const cells = parseRLE(rleText);
+    if (cells.length === 0) {
+      throw new Error("No cells found in RLE file");
+    }
+
+    grid.clear();
+    cellAges.clear();
+    generation = 0;
+    populationHistory = [];
+    updateStats();
+    updateGraphStats();
+
+    for (let [dx, dy] of cells) {
+      const k = key(dx, dy);
+      grid.add(k);
+      cellAges.set(k, 0);
+    }
+
+    fitPatternToScreen(cells);
+    log(`Loaded pattern from file: ${fileName} (${cells.length} cells)`, "action");
+    log("Auto fit shape to screen", "system");
+
+    updateGridButton();
+    updateFullCellButton();
+    updateEraseButton();
+    updateColorButton();
+    updateHeatmapButton();
+    updateStats();
+  } catch (e) {
+    console.error("Error loading pattern file:", e);
+    alert("Error loading pattern file: " + e.message);
+  }
+}
+
+// Toggle UI panel visibility
+function toggleUI() {
+  const ui = document.getElementById("ui");
+  ui.classList.toggle("hidden");
+  
+  const btn = document.getElementById("collapseBtn");
+  btn.textContent = ui.classList.contains("hidden") ? "❯" : "☰";
+
+  // Also hide/show terminal and its input when toggling the UI
+  const term = document.getElementById("terminal");
+  const termInput = document.getElementById("terminalInput");
+  if (ui.classList.contains("hidden")) {
+    if (term) term.style.display = "none";
+    if (termInput) termInput.style.display = "none";
+  } else {
+    if (term) term.style.display = "";
+    if (termInput) termInput.style.display = "";
+  }
+}
+
+// Utility functions for coordinate handling
+const key = (x,y)=>`${x},${y}`; // Convert coordinates to string key
+const parse = k=>k.split(',').map(Number); // Parse string key back to coordinates
+
+// Log messages to the terminal with timestamps and colors
+function log(msg, type = "info") {
+  const term = document.getElementById("terminal");
+  if (!term) return;
+
+  if (type === "action") {
+    const now = performance.now();
+    if (now - lastLogTime < 50) return; // Rate limit action logs
+    lastLogTime = now;
+  }
+
+  const time = new Date().toLocaleTimeString();
+
+  let color = "#00ff88"; // Default green
+
+  if (type === "warn") color = "orange";
+  if (type === "error") color = "red";
+  if (type === "action") color = "#4cc9f0"; // Blue for actions
+  if (type === "system") color = "#aaa"; // Gray for system
+
+  term.innerHTML += `<span style="color:${color}">[${time}] ${msg}</span><br>`;
+  term.scrollTop = term.scrollHeight;
+
+  console.log(msg);
+}
+
+// Create a snapshot of the current game state for undo/redo
+function createSnapshot() {
+  return {
+    grid: new Set(grid),
+    cellAges: new Map(cellAges),
+    generation: generation,
+    populationHistory: [...populationHistory]
+  };
+}
+
+function serializeBoardState() {
+  return {
+    version: 1,
+    grid: Array.from(grid),
+    wallRegions: Array.from(wallRegions),
+    cellAges: Array.from(cellAges.entries()),
+    generation,
+    populationHistory: [...populationHistory],
+    cellSize,
+    offsetX,
+    offsetY,
+    running,
+    showGrid,
+    fullCellMode,
+    eraseMode,
+    colorMode,
+    heatmapMode,
+    ghostMode,
+    patternRotation,
+    patternMirror,
+    graphGenerationScale,
+    livingCountDisplay,
+    birthSet: Array.from(birthSet),
+    survivalSet: Array.from(survivalSet)
+  };
+}
+
+function getSavedBoardStateEntries() {
+  try {
+    const raw = localStorage.getItem("gol-board-states");
+    if (!raw) {
+      const legacy = localStorage.getItem("gol-board-state");
+      if (!legacy) return [];
+      const parsed = JSON.parse(legacy);
+      return [{ id: "legacy-state", name: "Saved State", state: parsed }];
+    }
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error("Failed to read saved board states", err);
+    return [];
+  }
+}
+
+function persistSavedBoardStates() {
+  try {
+    localStorage.setItem("gol-board-states", JSON.stringify(savedBoardStates));
+  } catch (err) {
+    console.error("Failed to persist saved board states", err);
+  }
+}
+
+function applyBoardState(state) {
+  if (!state) return false;
+
+  grid = new Set(state.grid || []);
+  wallRegions = new Set(state.wallRegions || []);
+  cellAges = new Map(state.cellAges || []);
+  generation = Number(state.generation) || 0;
+  populationHistory = Array.isArray(state.populationHistory) ? [...state.populationHistory] : [];
+
+  cellSize = Number(state.cellSize) || 20;
+  offsetX = Number(state.offsetX) || 0;
+  offsetY = Number(state.offsetY) || 0;
+
+  showGrid = Boolean(state.showGrid);
+  fullCellMode = Boolean(state.fullCellMode);
+  eraseMode = Boolean(state.eraseMode);
+  colorMode = Boolean(state.colorMode);
+  heatmapMode = Boolean(state.heatmapMode);
+  ghostMode = Boolean(state.ghostMode);
+  patternRotation = Number(state.patternRotation) || 0;
+  patternMirror = Number(state.patternMirror) || 0;
+  graphGenerationScale = state.graphGenerationScale || "default";
+  livingCountDisplay = state.livingCountDisplay || "default";
+  birthSet = new Set(state.birthSet || []);
+  survivalSet = new Set(state.survivalSet || []);
+
+  selectionRect = null;
+  selectedCells = new Set();
+  undoStack = [];
+  redoStack = [];
+  running = Boolean(state.running);
+
+  updateButton();
+  updateGridButton();
+  updateFullCellButton();
+  updateEraseButton();
+  updateColorButton();
+  updateHeatmapButton();
+  updateStats();
+  updateGraphStats();
+  renderRuleBoxes();
+  updateRuleString();
+
+  const generationScaleSelect = document.getElementById("graphGenerationScaleSelect");
+  if (generationScaleSelect) generationScaleSelect.value = graphGenerationScale;
+  const livingCountSelect = document.getElementById("livingCountDisplaySelect");
+  if (livingCountSelect) livingCountSelect.value = livingCountDisplay;
+
+  if (graphModalOpen) {
+    redrawExpandedGraph();
+    updateExpandedGraphInfo();
+  }
+
+  return true;
+}
+
+function saveBoardStateToStorage() {
+  try {
+    const defaultName = `State ${savedBoardStates.length + 1}`;
+    const enteredName = prompt("Name for saved state:", defaultName);
+    const name = (enteredName !== null && enteredName.trim()) ? enteredName.trim() : defaultName;
+    const state = serializeBoardState();
+    savedBoardStates.unshift({ id: `state-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, state });
+    if (savedBoardStates.length > 20) savedBoardStates.pop();
+    persistSavedBoardStates();
+    updateStateMenu();
+    log(`Board state saved: ${name}`, "action");
+  } catch (err) {
+    console.error("Failed to save board state", err);
+    log("Could not save board state", "error");
+  }
+}
+
+function updateStateMenu() {
+  const menu = document.getElementById("stateMenu");
+  const items = document.getElementById("stateItems");
+  const empty = document.getElementById("stateEmpty");
+
+  if (!menu || !items || !empty) return;
+
+  items.innerHTML = "";
+  if (savedBoardStates.length === 0) {
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  savedBoardStates.forEach((entry) => {
+    const item = document.createElement("div");
+    item.className = "clipboard-item";
+
+    const row = document.createElement("div");
+    row.className = "clipboard-item-row";
+
+    const main = document.createElement("div");
+    main.className = "clipboard-item-main";
+    main.innerHTML = `<span class="clipboard-number">${entry.name}</span>`;
+    main.onclick = () => {
+      if (applyBoardState(entry.state)) {
+        log(`Loaded saved state: ${entry.name}`, "action");
+      }
+      closeStateMenu();
+    };
+
+    const actions = document.createElement("div");
+    actions.className = "clipboard-actions";
+
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "clipboard-action-btn";
+    renameBtn.textContent = "✎";
+    renameBtn.title = "Rename";
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt("Rename saved state:", entry.name);
+      if (newName !== null && newName.trim() !== "") {
+        entry.name = newName.trim();
+        persistSavedBoardStates();
+        updateStateMenu();
+      }
+    };
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "clipboard-action-btn";
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "Delete";
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      savedBoardStates = savedBoardStates.filter((stateEntry) => stateEntry.id !== entry.id);
+      persistSavedBoardStates();
+      updateStateMenu();
+    };
+
+    actions.appendChild(renameBtn);
+    actions.appendChild(deleteBtn);
+    row.appendChild(main);
+    row.appendChild(actions);
+    item.appendChild(row);
+    items.appendChild(item);
+  });
+
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "clipboard-clear";
+  clearBtn.textContent = "Clear Saved States";
+  clearBtn.onclick = (e) => {
+    e.stopPropagation();
+    savedBoardStates = [];
+    persistSavedBoardStates();
+    updateStateMenu();
+  };
+  items.appendChild(clearBtn);
+}
+
+function openStateMenu() {
+  updateStateMenu();
+  const menu = document.getElementById("stateMenu");
+  if (!menu) return;
+  menu.style.display = savedBoardStates.length ? "block" : "none";
+  if (savedBoardStates.length) {
+    menu.style.left = mouseX + "px";
+    menu.style.top = mouseY + "px";
+  }
+}
+
+function closeStateMenu() {
+  const menu = document.getElementById("stateMenu");
+  if (menu) menu.style.display = "none";
+}
+
+function loadBoardStateFromStorage(entryId = null) {
+  if (entryId) {
+    const entry = savedBoardStates.find((stateEntry) => stateEntry.id === entryId);
+    if (!entry) return false;
+    if (applyBoardState(entry.state)) {
+      log(`Loaded saved state: ${entry.name}`, "action");
+      return true;
+    }
+    return false;
+  }
+
+  if (savedBoardStates.length === 0) {
+    const legacyStates = getSavedBoardStateEntries();
+    if (legacyStates.length) {
+      savedBoardStates = legacyStates;
+      persistSavedBoardStates();
+    }
+  }
+
+  if (savedBoardStates.length === 0) {
+    log("No saved states found", "warn");
+    return false;
+  }
+
+  openStateMenu();
+  return true;
+}
+
+// Restore the game state from a snapshot
+// (Actual restoreSnapshot is defined later once, after the rules UI functions.)
+
+// Calculate the bounding box of a pattern
+function getPatternBounds(pattern){
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for(let [dx,dy] of pattern){
+    if(dx < minX) minX = dx;
+    if(dy < minY) minY = dy;
+    if(dx > maxX) maxX = dx;
+    if(dy > maxY) maxY = dy;
+  }
+  return {minX, minY, maxX, maxY};
+}
+
+// Get the bounds and center point of a pattern
+function getPatternAnchor(pattern){
+  let bounds = getPatternBounds(pattern);
+  let centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
+  let centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
+  return {bounds, centerX, centerY};
+}
+
+// Fit a pattern into the visible canvas area by adjusting the view
+function fitPatternToScreen(pattern){
+  const {bounds} = getPatternAnchor(pattern);
+  const patternWidth = bounds.maxX - bounds.minX + 1;
+  const patternHeight = bounds.maxY - bounds.minY + 1;
+
+  if (patternWidth <= 0 || patternHeight <= 0) return;
+
+  const margin = 2; // empty cells margin around pattern
+  const fitWidth = Math.floor(canvas.width / (patternWidth + margin));
+  const fitHeight = Math.floor(canvas.height / (patternHeight + margin));
+  const targetSize = Math.max(1, Math.min(fitWidth, fitHeight));
+
+  cellSize = Math.min(Math.max(targetSize, 2), 80);
+
+  const centerX = (bounds.minX + bounds.maxX + 1) / 2;
+  const centerY = (bounds.minY + bounds.maxY + 1) / 2;
+
+  offsetX = canvas.width / 2 - centerX * cellSize;
+  offsetY = canvas.height / 2 - centerY * cellSize;
+}
+
+// Get the color for a cell based on its age and display mode
+function getAgeColor(age){
+  const baseColors = [
+    'rgb(157,220,21)',  // young
+    'rgb(255,213,57)',  // 2nd stage
+    'rgb(245,143,32)',  // 3rd stage
+    'rgb(202,32,77)'    // oldest
+  ];
+
+  if(heatmapMode){
+    // Heatmap: gradient from cool to hot by age (clamp age 0..20)
+    const maxAge = 20;
+    const t = Math.min(age, maxAge) / maxAge;
+    const r = Math.round(60 + (240 - 60) * t);
+    const g = Math.round(180 - (180 - 40) * t);
+    const b = Math.round(220 - (220 - 70) * t);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  if(colorMode){
+    let index = Math.min(age, baseColors.length - 1);
+    return baseColors[index];
+  }
+
+  return "lime";
+}
+
+// Rotate a pattern by 90-degree increments
+function rotatePattern(cells, angle) {
+  // angle must be 0, 90, 180, 270
+  const radians = (angle * Math.PI) / 180;
+
+  // normalize rotation mapping (grid rotation, not true trig float math)
+  const rotated = cells.map(([x, y]) => {
+    let rx, ry;
+
+    switch (angle % 360) {
+      case 90:
+        rx = -y;
+        ry = x;
+        break;
+      case 180:
+        rx = -x;
+        ry = -y;
+        break;
+      case 270:
+        rx = y;
+        ry = -x;
+        break;
+      default:
+        rx = x;
+        ry = y;
+    }
+
+    return [rx, ry];
+  });
+
+  return rotated;
+}
+
+function transformPattern(cells, angle, mirror) {
+  const rotated = rotatePattern(cells, angle);
+
+  if (mirror === 1) {
+    // Mirror across horizontal axis (flip top/bottom)
+    return rotated.map(([x, y]) => [x, -y]);
+  }
+
+  if (mirror === 2) {
+    // Mirror across vertical axis (flip left/right)
+    return rotated.map(([x, y]) => [-x, y]);
+  }
+
+  return rotated;
+}
+
+function getSelectionBounds(){
+  if(!selectionStart || !selectionEnd) return null;
+  const x1 = Math.min(selectionStart[0], selectionEnd[0]);
+  const x2 = Math.max(selectionStart[0], selectionEnd[0]);
+  const y1 = Math.min(selectionStart[1], selectionEnd[1]);
+  const y2 = Math.max(selectionStart[1], selectionEnd[1]);
+  return { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+}
+
+function updateSelectionRectFromCells(){
+  if(selectedCells.size === 0){
+    selectionStart = null;
+    selectionEnd = null;
+    selectionRect = null;
+    updateDataPanel();
+    return;
+  }
+
+  let x1 = Infinity;
+  let y1 = Infinity;
+  let x2 = -Infinity;
+  let y2 = -Infinity;
+
+  for(const keyStr of selectedCells){
+    const [x, y] = parse(keyStr);
+    x1 = Math.min(x1, x);
+    y1 = Math.min(y1, y);
+    x2 = Math.max(x2, x);
+    y2 = Math.max(y2, y);
+  }
+
+  selectionStart = [x1, y1];
+  selectionEnd = [x2, y2];
+  selectionRect = { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+  updateDataPanel();
+}
+
+function clearSelection(){
+
+  selectionStart = null;
+  selectionEnd = null;
+  selectionActive = false;
+  selectionRect = null;
+  selectedCells.clear();
+}
+
+function clearSelectionContents() {
+  const bounds = selectionActive ? getSelectionBounds() : selectionRect;
+  const cellsToClear = [];
+
+  if (selectedCells.size > 0) {
+    for (const keyStr of selectedCells) {
+      cellsToClear.push(keyStr);
+    }
+  } else if (bounds) {
+    for (const keyStr of grid) {
+      const [x, y] = parse(keyStr);
+      if (x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2) {
+        cellsToClear.push(keyStr);
+      }
+    }
+  }
+
+  if (cellsToClear.length === 0) {
+    clearSelection();
+    updateDataPanel();
+    return;
+  }
+
+  undoStack.push(createSnapshot());
+  if (undoStack.length > MAX_HISTORY) {
+    undoStack.shift();
+  }
+  redoStack = [];
+  running = false;
+  updateButton();
+
+  for (const keyStr of cellsToClear) {
+    grid.delete(keyStr);
+    cellAges.delete(keyStr);
+  }
+
+  clearSelection();
+  updateStats();
+  updateGraphStats();
+  updateExpandedGraphInfo();
+  if (graphModalOpen) {
+    redrawExpandedGraph();
+  }
+  updateDataPanel();
+  log("Selection cleared", "action");
+}
+
+function selectAllCells(){
+  if(grid.size === 0){
+    log("No live cells to select.", "warn");
+    return;
+  }
+
+  let x1 = Infinity;
+  let y1 = Infinity;
+  let x2 = -Infinity;
+  let y2 = -Infinity;
+
+  for(const k of grid){
+    const [x, y] = parse(k);
+    x1 = Math.min(x1, x);
+    y1 = Math.min(y1, y);
+    x2 = Math.max(x2, x);
+    y2 = Math.max(y2, y);
+  }
+
+  selectionStart = [x1, y1];
+  selectionEnd = [x2, y2];
+  selectionActive = false;
+  selectedCells = new Set(grid);
+  updateSelectionRectFromCells();
+
+  log(`Selected all live cells ${selectionRect.width}×${selectionRect.height}`, "action");
+  updateDataPanel();
+}
+
+function updateClipboardMenu(){
+  const menu = document.getElementById("clipboardMenu");
+  const items = document.getElementById("clipboardItems");
+  const empty = document.getElementById("clipboardEmpty");
+
+  items.innerHTML = "";
+
+  if(clipboardHistory.length === 0){
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  clipboardHistory.forEach((entry) => {
+    const item = document.createElement("div");
+    item.className = "clipboard-item";
+
+    const row = document.createElement("div");
+    row.className = "clipboard-item-row";
+
+    const main = document.createElement("div");
+    main.className = "clipboard-item-main";
+    main.innerHTML = `<span class="clipboard-number">${entry.name} : </span><span class="clipboard-box">${entry.width}×${entry.height}</span>`;
+    main.onclick = () => selectClipboardEntry(entry.id);
+
+    const actions = document.createElement("div");
+    actions.className = "clipboard-actions";
+
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "clipboard-action-btn";
+    renameBtn.textContent = "✎";
+    renameBtn.title = "Rename";
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt("Rename clipboard entry:", entry.name);
+      if (newName !== null && newName.trim() !== "") {
+        entry.name = newName.trim();
+        updateClipboardMenu();
+      }
+    };
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "clipboard-action-btn";
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "Delete";
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      clipboardHistory = clipboardHistory.filter(item => item.id !== entry.id);
+      delete patterns[entry.id];
+      updateClipboardMenu();
+    };
+
+    actions.appendChild(renameBtn);
+    actions.appendChild(deleteBtn);
+    row.appendChild(main);
+    row.appendChild(actions);
+    item.appendChild(row);
+    items.appendChild(item);
+  });
+
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "clipboard-clear";
+  clearBtn.textContent = "Clear Clipboard";
+  clearBtn.onclick = (e) => {
+    e.stopPropagation();
+    clipboardHistory = [];
+    Object.keys(patterns).forEach((key) => {
+      if (key.startsWith("clipboard-")) {
+        delete patterns[key];
+      }
+    });
+    updateClipboardMenu();
+  };
+  items.appendChild(clearBtn);
+}
+
+function openClipboardMenu(){
+  updateClipboardMenu();
+  const menu = document.getElementById("clipboardMenu");
+  menu.style.display = clipboardHistory.length ? "block" : "none";
+
+  if(clipboardHistory.length){
+    menu.style.left = mouseX + "px";
+    menu.style.top = mouseY + "px";
+  } else {
+    log("Clipboard empty. Use Ctrl+Drag + Ctrl+C or Ctrl+X to copy.", "action");
+  }
+}
+
+function closeClipboardMenu(){
+  const menu = document.getElementById("clipboardMenu");
+  menu.style.display = "none";
+}
+
+function selectClipboardEntry(id){
+  const entry = clipboardHistory.find(e => e.id === id);
+  if(!entry) return;
+
+  const select = document.getElementById("patternSelect");
+  if(!Array.from(select.options).some(o => o.value === id)){
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = entry.name;
+    select.appendChild(opt);
+  }
+
+  select.value = id;
+  select.dispatchEvent(new Event("change"));
+  log(`Selected clipboard item: ${entry.name}`, "action");
+  closeClipboardMenu();
+}
+
+function addClipboardEntry(cells, width, height){
+  const id = `clipboard-${Date.now()}-${clipboardHistory.length}`;
+  const name = `${clipboardHistory.length + 1}`;
+
+  clipboardHistory.unshift({ id, name, cells, width, height });
+  if(clipboardHistory.length > 20) clipboardHistory.pop();
+  patterns[id] = cells;
+
+  return id;
+}
+
+function getCellsInSelection(){
+  const bounds = selectionRect;
+  if(!bounds) return null;
+
+  const cells = [];
+  if(selectedCells.size > 0){
+    for(const keyStr of selectedCells){
+      const [x, y] = parse(keyStr);
+      cells.push([x - bounds.x1, y - bounds.y1]);
+    }
+    return cells;
+  }
+
+  for(const keyStr of grid){
+    const [x, y] = parse(keyStr);
+    if(x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2){
+      cells.push([x - bounds.x1, y - bounds.y1]);
+    }
+  }
+
+  return cells;
+}
+
+function copySelection(cut = false){
+  if(!selectionRect || selectedCells.size === 0){
+    log("No selection to copy.", "warn");
+    return;
+  }
+
+  const cells = getCellsInSelection();
+  if(!cells || cells.length === 0){
+    log("Selected area contains no live cells.", "warn");
+    return;
+  }
+
+  const id = addClipboardEntry(cells, selectionRect.width, selectionRect.height);
+  log(`${cut ? "Cut" : "Copied"} ${cells.length} cells to clipboard: ${id}`, "action");
+
+  if(cut){
+    undoStack.push(createSnapshot());
+    if(undoStack.length > MAX_HISTORY) undoStack.shift();
+
+    for(const keyStr of selectedCells){
+      grid.delete(keyStr);
+      cellAges.delete(keyStr);
+    }
+
+    clearSelection();
+    closeClipboardMenu();
+  }
+}
+
+// Main drawing function - renders the grid, cells, and UI elements
+function draw(){
+    if (ghostMode && running) {
+    // Faintly "overpaint" the previous frame to create trails
+    ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+
+  for(let k of grid){
+    let [x,y]=parse(k);
+    let sx=x*cellSize+offsetX;
+    let sy=y*cellSize+offsetY;
+    // draw living cell inset so grid lines remain visible — leave only the grid line thickness gap
+    const gridLineWidth = 1; // keep in sync with grid drawing below
+    let padding = gridLineWidth / 2;
+    let size = Math.max(1, cellSize - gridLineWidth);
+
+    if(sx>-cellSize && sy>-cellSize && sx<canvas.width && sy<canvas.height){
+      // Set fill style based on color or heatmap mode
+      if(colorMode || heatmapMode){
+        let age = cellAges.get(k) || 0;
+        ctx.fillStyle = getAgeColor(age);
+      } else {
+        ctx.fillStyle = "lime";
+      }
+
+      if(fullCellMode){
+        ctx.fillRect(sx-0.5, sy-0.5, cellSize+1, cellSize+1);
+      } else {
+        ctx.fillRect(sx + padding, sy + padding, size, size);
+      }
+    }
+  }
+
+  const minGridCellSize = 8; // below this, hide grid to reduce visual noise
+  if(showGrid && cellSize >= minGridCellSize){
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    let startX = ((offsetX % cellSize) + cellSize) % cellSize;
+    for(let x = startX; x <= canvas.width; x += cellSize){
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+    }
+    let startY = ((offsetY % cellSize) + cellSize) % cellSize;
+    for(let y = startY; y <= canvas.height; y += cellSize){
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+    }
+    ctx.stroke();
+  } else if(showGrid && cellSize < minGridCellSize) {
+    // keep the helper state on, but do not draw the visual grid at extreme zoom levels
+  }
+
+  const activeSelection = selectionActive ? getSelectionBounds() : selectionRect;
+  if(activeSelection){
+    const sx = activeSelection.x1 * cellSize + offsetX;
+    const sy = activeSelection.y1 * cellSize + offsetY;
+    const sw = activeSelection.width * cellSize;
+    const sh = activeSelection.height * cellSize;
+
+    ctx.save();
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(sx, sy, sw, sh);
+    ctx.restore();
+  }
+
+  if (mirrorLine || mirrorLinePlacing || mirrorLines.length > 0) {
+    ctx.save();
+    ctx.strokeStyle = mirrorLinePlacing ? "cyan" : "yellow";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    const renderSegment = ({x1, y1, x2, y2}) => {
+      ctx.moveTo(x1 * cellSize + offsetX + cellSize / 2, y1 * cellSize + offsetY + cellSize / 2);
+      ctx.lineTo(x2 * cellSize + offsetX + cellSize / 2, y2 * cellSize + offsetY + cellSize / 2);
+    };
+
+    for (const line of mirrorLines) {
+      renderSegment({x1: line[0][0], y1: line[0][1], x2: line[1][0], y2: line[1][1]});
+    }
+    if (mirrorLine) {
+      const alreadyRendered = mirrorLines.some(line =>
+        line[0][0] === mirrorLine[0][0] && line[0][1] === mirrorLine[0][1] &&
+        line[1][0] === mirrorLine[1][0] && line[1][1] === mirrorLine[1][1]
+      );
+      if (!alreadyRendered) {
+        renderSegment({x1: mirrorLine[0][0], y1: mirrorLine[0][1], x2: mirrorLine[1][0], y2: mirrorLine[1][1]});
+      }
+    }
+    if (mirrorLinePlacing && mirrorLineStart) {
+      let end = [Math.floor((mouseX - offsetX) / cellSize), Math.floor((mouseY - offsetY) / cellSize)];
+      if (mirrorLineConstrained) {
+        end = getSnappedMirrorLineEnd(mirrorLineStart, end);
+      }
+      renderSegment({x1: mirrorLineStart[0], y1: mirrorLineStart[1], x2: end[0], y2: end[1]});
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw wall regions
+  ctx.save();
+  ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 1;
+  for(let k of wallRegions){
+    let [x,y]=parse(k);
+    let sx=x*cellSize+offsetX;
+    let sy=y*cellSize+offsetY;
+    if(sx>-cellSize && sy>-cellSize && sx<canvas.width && sy<canvas.height){
+      ctx.fillRect(sx, sy, cellSize, cellSize);
+    }
+  }
+  ctx.restore();
+
+// Brush preview
+let brush = parseInt(document.getElementById("brushSize").value);
+let mode = document.getElementById("patternSelect").value;
+
+let gx = Math.floor((mouseX - offsetX) / cellSize);
+let gy = Math.floor((mouseY - offsetY) / cellSize);
+
+// Base preview styling
+ctx.strokeStyle = eraseMode ? "red" : "white";
+ctx.globalAlpha = 0.5;
+ctx.lineWidth = 2;
+
+// Dashed outline for chaos mode
+if (mode === "chaos") {
+  ctx.setLineDash([5, 5]);
+} else {
+  ctx.setLineDash([]);
+}
+
+// --- PATTERN MODE (Ghost shape + bounding box) ---
+if (mode !== "draw" && mode !== "chaos" && patterns[mode]) {
+  let rotated = transformPattern(patterns[mode], patternRotation, patternMirror);
+  let { bounds, centerX, centerY } = getPatternAnchor(rotated);
+
+  if (patternGhostPreview) {
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = eraseMode ? "red" : "white";
+
+    for (let [dx, dy] of rotated) {
+      let px = (gx + dx - centerX) * cellSize + offsetX;
+      let py = (gy + dy - centerY) * cellSize + offsetY;
+      ctx.fillRect(px, py, cellSize, cellSize);
+    }
+  }
+
+  // Draw bounding box on top
+  ctx.globalAlpha = 0.5;
+  ctx.strokeRect(
+    (gx + bounds.minX - centerX) * cellSize + offsetX,
+    (gy + bounds.minY - centerY) * cellSize + offsetY,
+    (bounds.maxX - bounds.minX + 1) * cellSize,
+    (bounds.maxY - bounds.minY + 1) * cellSize
+  );
+
+// --- DRAW / CHAOS MODE (square brush preview) ---
+} else {
+  ctx.strokeRect(
+    gx * cellSize - (brush - 1) * cellSize + offsetX,
+    gy * cellSize - (brush - 1) * cellSize + offsetY,
+    brush * 2 * cellSize - cellSize,
+    brush * 2 * cellSize - cellSize
+  );
+}
+
+// Reset canvas state
+ctx.setLineDash([]);
+ctx.globalAlpha = 1;
+
+  // Draw population graph
+  const graphCanvas = document.getElementById("graphCanvas");
+  const graphCtx = graphCanvas.getContext("2d");
+  drawPopulationGraph(graphCanvas, graphCtx);
+  
+  const minimapCanvas = document.getElementById("minimapCanvas");
+const minimapCtx = minimapCanvas.getContext("2d");
+
+minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+// Determine bounds of all live cells and walls
+const minimapPoints = [];
+for (let k of grid) {
+  minimapPoints.push(parse(k));
+}
+for (let k of wallRegions) {
+  minimapPoints.push(parse(k));
+}
+
+if (minimapPoints.length > 0) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  for (let [x, y] of minimapPoints) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+
+  let width = maxX - minX + 1;
+  let height = maxY - minY + 1;
+
+  let scaleX = minimapCanvas.width / width;
+  let scaleY = minimapCanvas.height / height;
+  let scale = Math.min(scaleX, scaleY);
+
+  let offsetXMinimap = (minimapCanvas.width - width * scale) / 2;
+  let offsetYMinimap = (minimapCanvas.height - height * scale) / 2;
+
+  minimapCtx.fillStyle = "red";
+  for (let k of wallRegions) {
+    let [x, y] = parse(k);
+    let mx = offsetXMinimap + (x - minX) * scale;
+    let my = offsetYMinimap + (y - minY) * scale;
+
+    minimapCtx.fillRect(mx, my, Math.max(1, scale), Math.max(1, scale));
+  }
+
+  minimapCtx.fillStyle = "lime";
+  for (let k of grid) {
+    let [x, y] = parse(k);
+    let mx = offsetXMinimap + (x - minX) * scale;
+    let my = offsetYMinimap + (y - minY) * scale;
+
+    minimapCtx.fillRect(mx, my, Math.max(1, scale), Math.max(1, scale));
+  }
+
+  // Draw viewport rectangle
+  let viewX = (-offsetX / cellSize - minX) * scale + offsetXMinimap;
+  let viewY = (-offsetY / cellSize - minY) * scale + offsetYMinimap;
+
+  let viewW = canvas.width / cellSize * scale;
+  let viewH = canvas.height / cellSize * scale;
+
+  minimapCtx.strokeStyle = "white";
+  minimapCtx.lineWidth = 1;
+  minimapCtx.strokeRect(viewX, viewY, viewW, viewH);
+}
+  
+}
+
+// Simulation
+function getNeighbors(x,y){
+  let n=0;
+  for(let dx=-1;dx<=1;dx++){
+    for(let dy=-1;dy<=1;dy++){
+      if(dx||dy){
+        if(grid.has(key(x+dx,y+dy))) n++;
+      }
+    }
+  }
+  return n;
+}
+
+function removeWallTouchedBlobs(cellSet){
+  const visited = new Set();
+  const toRemove = new Set();
+
+  for(const start of cellSet){
+    if(visited.has(start)) continue;
+    const stack = [start];
+    const component = [];
+    let touchesWall = false;
+    visited.add(start);
+
+    while(stack.length){
+      const cell = stack.pop();
+      component.push(cell);
+      const [cx, cy] = parse(cell);
+
+      for(let dx=-1;dx<=1;dx++){
+        for(let dy=-1;dy<=1;dy++){
+          if(dx===0 && dy===0) continue;
+          const adjacent = key(cx+dx, cy+dy);
+          if(wallRegions.has(adjacent)) touchesWall = true;
+          if(cellSet.has(adjacent) && !visited.has(adjacent)){
+            visited.add(adjacent);
+            stack.push(adjacent);
+          }
+        }
+      }
+    }
+
+    if(touchesWall){
+      for(const cell of component){
+        toRemove.add(cell);
+      }
+    }
+  }
+
+  for(const cell of toRemove){
+    cellSet.delete(cell);
+  }
+}
+
+function recordPopulationSnapshot(){
+  if (populationHistory.length === 0 || populationHistory[populationHistory.length - 1] !== grid.size){
+    populationHistory.push(grid.size);
+    if (populationHistory.length > 2000) populationHistory.shift();
+  }
+}
+
+function areSetsEqual(a, b) {
+  if (a.size !== b.size) return false;
+  for (const item of a) {
+    if (!b.has(item)) return false;
+  }
+  return true;
+}
+
+// Advance the simulation by one generation using the current rules
+function step(){
+  recordPopulationSnapshot();
+  let newGrid=new Set();
+  let check=new Set();
+
+  for(let k of grid){
+    let [x,y]=parse(k);
+    check.add(k);
+
+    for(let dx=-1;dx<=1;dx++){
+      for(let dy=-1;dy<=1;dy++){
+        check.add(key(x+dx,y+dy));
+      }
+    }
+  }
+
+  for(let k of check){
+    let [x,y]=parse(k);
+    
+      // Check if cell touches a wall - if so, it dies
+    let touchesWall = false;
+    for(let dx=-1;dx<=1;dx++){
+      for(let dy=-1;dy<=1;dy++){
+        if(wallRegions.has(key(x+dx,y+dy))){
+          touchesWall = true;
+          break;
+        }
+      }
+    }
+    if(touchesWall) continue; // Cell dies if it touches a wall
+
+    let n = getNeighbors(x,y);
+    let alive=grid.has(k);
+
+    // Use customizable rules (birthSet / survivalSet)
+    if((alive && survivalSet.has(n)) || (!alive && birthSet.has(n))){
+      newGrid.add(k);
+    }
+  }
+
+  removeWallTouchedBlobs(newGrid);
+  const prevGrid = new Set(grid);
+  grid=newGrid;
+
+  // Update cell ages
+  let newAges = new Map();
+  for(let k of grid){
+    newAges.set(k, cellAges.has(k) ? cellAges.get(k) + 1 : 0);
+  }
+  cellAges = newAges;
+
+  const currentPopulation = grid.size;
+  const isStatic = areSetsEqual(prevGrid, grid);
+  staticGenerationCount = isStatic ? staticGenerationCount + 1 : 0;
+  samePopulationCount = (populationHistory.length > 0 && populationHistory[populationHistory.length - 1] === currentPopulation)
+    ? samePopulationCount + 1
+    : 0;
+
+  generation++;
+  updateStats();
+  populationHistory.push(currentPopulation);
+  if(populationHistory.length > 2000) populationHistory.shift();
+
+  if (graphModalOpen) {
+    updateExpandedGraphInfo();
+  }
+
+  const thresholdInput = document.getElementById("autoPauseStaticThreshold");
+  const threshold = thresholdInput && thresholdInput.value ? parseInt(thresholdInput.value, 10) : 10;
+  const effectiveThreshold = Number.isInteger(threshold) && threshold > 0 ? threshold : 10;
+
+  if (running && autoPauseWhenStatic && (staticGenerationCount >= effectiveThreshold || samePopulationCount >= effectiveThreshold)) {
+    running = false;
+    updateButton();
+    log(`Auto-paused: stable for ${effectiveThreshold} generations`, "action");
+  }
+}
+
+// Draw population graph on any canvas
+function getGenerationScaleFactor() {
+  switch (graphGenerationScale) {
+    case "decade": return 10;
+    case "century": return 100;
+    case "millennium": return 1000;
+    default: return 1;
+  }
+}
+
+function formatGenerationValue(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "-";
+  const factor = getGenerationScaleFactor();
+  if (factor === 1) return numericValue.toString();
+  return (numericValue / factor).toFixed(3);
+}
+
+function formatLivingCount(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "-";
+  if (livingCountDisplay !== "scientific") return numericValue.toString();
+  return numericValue.toExponential(3);
+}
+
+function drawPopulationGraph(graphCanvas, graphCtx) {
+  graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+  // Draw subtle background grid
+  graphCtx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  graphCtx.lineWidth = 1;
+  const gridSpacing = 20;
+  for (let i = 0; i < graphCanvas.width; i += gridSpacing) {
+    graphCtx.beginPath();
+    graphCtx.moveTo(i, 0);
+    graphCtx.lineTo(i, graphCanvas.height);
+    graphCtx.stroke();
+  }
+  for (let i = 0; i < graphCanvas.height; i += gridSpacing) {
+    graphCtx.beginPath();
+    graphCtx.moveTo(0, i);
+    graphCtx.lineTo(graphCanvas.width, i);
+    graphCtx.stroke();
+  }
+
+  if (populationHistory.length > 1) {
+    const maxPop = Math.max(...populationHistory);
+    const scaleY = maxPop > 0 ? graphCanvas.height / maxPop : 1;
+    const stepX = graphCanvas.width / (populationHistory.length - 1);
+
+    // Draw filled area under the curve
+    graphCtx.fillStyle = "rgba(0, 255, 0, 0.1)";
+    graphCtx.beginPath();
+    graphCtx.moveTo(0, graphCanvas.height);
+    for (let i = 0; i < populationHistory.length; i++) {
+      const x = i * stepX;
+      const y = graphCanvas.height - (populationHistory[i] * scaleY);
+      graphCtx.lineTo(x, y);
+    }
+    graphCtx.lineTo(graphCanvas.width, graphCanvas.height);
+    graphCtx.fill();
+
+    // Draw line with thickness
+    graphCtx.lineWidth = 2;
+    for (let i = 1; i < populationHistory.length; i++) {
+      const x1 = (i - 1) * stepX;
+      const y1 = graphCanvas.height - (populationHistory[i - 1] * scaleY);
+      const x2 = i * stepX;
+      const y2 = graphCanvas.height - (populationHistory[i] * scaleY);
+
+      if (populationHistory[i] > populationHistory[i - 1]) {
+        graphCtx.strokeStyle = "#00ff00";
+      } else if (populationHistory[i] < populationHistory[i - 1]) {
+        graphCtx.strokeStyle = "#ff3333";
+      } else {
+        graphCtx.strokeStyle = "#00ff00";
+      }
+
+      graphCtx.beginPath();
+      graphCtx.moveTo(x1, y1);
+      graphCtx.lineTo(x2, y2);
+      graphCtx.stroke();
+    }
+    updateGraphStats();
+  }
+}
+
+function drawExpandedPopulationGraph(graphCanvas, graphCtx) {
+  graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+  // Draw subtle background grid
+  graphCtx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  graphCtx.lineWidth = 1;
+  const gridSpacing = 20;
+  for (let i = 0; i < graphCanvas.width; i += gridSpacing) {
+    graphCtx.beginPath();
+    graphCtx.moveTo(i, 0);
+    graphCtx.lineTo(i, graphCanvas.height);
+    graphCtx.stroke();
+  }
+  for (let i = 0; i < graphCanvas.height; i += gridSpacing) {
+    graphCtx.beginPath();
+    graphCtx.moveTo(0, i);
+    graphCtx.lineTo(graphCanvas.width, i);
+    graphCtx.stroke();
+  }
+
+  if (populationHistory.length > 1) {
+    const leftMargin = 46;
+    const rightMargin = 16;
+    const topMargin = 18;
+    const bottomMargin = 28;
+    const effectiveWidth = graphCanvas.width - leftMargin - rightMargin;
+    const effectiveHeight = graphCanvas.height - topMargin - bottomMargin;
+    const maxPop = Math.max(...populationHistory);
+    const minPop = Math.min(...populationHistory);
+    const popRange = maxPop - minPop || 1;
+    const scaleY = effectiveHeight / popRange;
+    const stepX = populationHistory.length > 1 ? effectiveWidth / (populationHistory.length - 1) : 0;
+
+    // Draw axes
+    graphCtx.strokeStyle = "rgba(255,255,255,0.35)";
+    graphCtx.lineWidth = 1;
+    graphCtx.beginPath();
+    graphCtx.moveTo(leftMargin, topMargin);
+    graphCtx.lineTo(leftMargin, graphCanvas.height - bottomMargin);
+    graphCtx.lineTo(graphCanvas.width - rightMargin, graphCanvas.height - bottomMargin);
+    graphCtx.stroke();
+
+    // Y axis labels
+    graphCtx.fillStyle = "#ccc";
+    graphCtx.font = "12px monospace";
+    graphCtx.textAlign = "right";
+    graphCtx.textBaseline = "middle";
+    const yTicks = 4;
+    for (let i = 0; i <= yTicks; i++) {
+      const y = topMargin + (effectiveHeight * i) / yTicks;
+      const value = Math.round(maxPop - (popRange * i) / yTicks);
+      graphCtx.fillText(value.toString(), leftMargin - 8, y);
+      graphCtx.beginPath();
+      graphCtx.moveTo(leftMargin - 4, y);
+      graphCtx.lineTo(leftMargin, y);
+      graphCtx.stroke();
+    }
+
+    // X axis labels
+    graphCtx.textAlign = "center";
+    graphCtx.textBaseline = "top";
+    const xTicks = Math.min(6, populationHistory.length - 1);
+    for (let i = 0; i <= xTicks; i++) {
+      const index = Math.round((populationHistory.length - 1) * i / xTicks);
+      const x = leftMargin + stepX * index;
+      graphCtx.fillText(formatGenerationValue(index), x, graphCanvas.height - bottomMargin + 6);
+      graphCtx.beginPath();
+      graphCtx.moveTo(x, graphCanvas.height - bottomMargin);
+      graphCtx.lineTo(x, graphCanvas.height - bottomMargin + 4);
+      graphCtx.stroke();
+    }
+
+    graphCtx.fillStyle = "rgba(0, 255, 0, 0.1)";
+    graphCtx.beginPath();
+    graphCtx.moveTo(leftMargin, graphCanvas.height - bottomMargin);
+    for (let i = 0; i < populationHistory.length; i++) {
+      const x = leftMargin + i * stepX;
+      const y = topMargin + (maxPop - populationHistory[i]) * scaleY;
+      graphCtx.lineTo(x, y);
+    }
+    graphCtx.lineTo(leftMargin + effectiveWidth, graphCanvas.height - bottomMargin);
+    graphCtx.fill();
+
+    graphCtx.lineWidth = 2;
+    for (let i = 1; i < populationHistory.length; i++) {
+      const x1 = leftMargin + (i - 1) * stepX;
+      const y1 = topMargin + (maxPop - populationHistory[i - 1]) * scaleY;
+      const x2 = leftMargin + i * stepX;
+      const y2 = topMargin + (maxPop - populationHistory[i]) * scaleY;
+      if (populationHistory[i] > populationHistory[i - 1]) {
+        graphCtx.strokeStyle = "#00ff00";
+      } else if (populationHistory[i] < populationHistory[i - 1]) {
+        graphCtx.strokeStyle = "#ff3333";
+      } else {
+        graphCtx.strokeStyle = "#00ff00";
+      }
+      graphCtx.beginPath();
+      graphCtx.moveTo(x1, y1);
+      graphCtx.lineTo(x2, y2);
+      graphCtx.stroke();
+    }
+
+    if (selectedGraphGeneration !== null && selectedGraphGeneration >= 0 && selectedGraphGeneration < populationHistory.length) {
+      const x = leftMargin + selectedGraphGeneration * stepX;
+      const y = topMargin + (maxPop - populationHistory[selectedGraphGeneration]) * scaleY;
+      graphCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      graphCtx.strokeStyle = "#00ffff";
+      graphCtx.lineWidth = 3;
+      graphCtx.beginPath();
+      graphCtx.arc(x, y, 5, 0, Math.PI * 2);
+      graphCtx.fill();
+      graphCtx.stroke();
+    }
+    updateGraphStats();
+  }
+}
+
+// Track if graph modal is open for continuous updates
+let graphModalOpen = false;
+let selectedGraphGeneration = null;
+
+function getGraphPeriodStats(history, periodLength) {
+  if (!history.length) return null;
+  const endIndex = history.length - 1;
+  const startIndex = Math.max(0, history.length - periodLength);
+  const period = history.slice(startIndex);
+  const high = Math.max(...period);
+  const low = Math.min(...period);
+  return {
+    high,
+    low,
+    highIndex: startIndex + period.lastIndexOf(high),
+    lowIndex: startIndex + period.indexOf(low),
+    startIndex,
+    endIndex
+  };
+}
+
+function getGraphStats() {
+  if (!populationHistory.length) return null;
+  const allTimeHigh = Math.max(...populationHistory);
+  const allTimeLow = Math.min(...populationHistory);
+  return {
+    allTime: {
+      high: allTimeHigh,
+      highIndex: populationHistory.lastIndexOf(allTimeHigh),
+      low: allTimeLow,
+      lowIndex: populationHistory.indexOf(allTimeLow)
+    },
+    decade: getGraphPeriodStats(populationHistory, 10),
+    century: getGraphPeriodStats(populationHistory, 100),
+    millenium: getGraphPeriodStats(populationHistory, 1000)
+  };
+}
+
+function updateExpandedGraphInfo() {
+  const panel = document.getElementById("graphInfoPanel");
+  if (!panel) return;
+
+  const stats = getGraphStats();
+  const hasHistory = populationHistory.length > 0;
+
+  panel.innerHTML = `
+    <div class="graphInfoBlock">
+      <h3>Graph Summary</h3>
+      <table class="graphInfoTable">
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            <th scope="col"># of cells</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Current generation</th><td>${formatGenerationValue(generation)}</td></tr>
+          <tr><th scope="row">Current population</th><td>${formatLivingCount(grid.size)}</td></tr>
+          <tr><th scope="row">History length</th><td>${populationHistory.length}</td></tr>
+          <tr><th scope="row">Selected generation</th><td>${selectedGraphGeneration !== null ? formatGenerationValue(selectedGraphGeneration) : '-'}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="graphInfoBlock">
+      <h3>Period High / Low</h3>
+      ${hasHistory ? `
+        <table class="graphInfoTable">
+          <thead>
+            <tr>
+              <th scope="col">Metric</th>
+              <th scope="col"># of Cells</th>
+              <th scope="col">Generation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Latest decade high</th><td>${stats.decade.high}</td><td><span class="graphJumpLink" data-gen="${stats.decade.highIndex}">#${formatGenerationValue(stats.decade.highIndex)}</span></td></tr>
+            <tr><th scope="row">Latest decade low</th><td>${stats.decade.low}</td><td><span class="graphJumpLink" data-gen="${stats.decade.lowIndex}">#${formatGenerationValue(stats.decade.lowIndex)}</span></td></tr>
+            <tr><th scope="row">Latest century high</th><td>${stats.century.high}</td><td><span class="graphJumpLink" data-gen="${stats.century.highIndex}">#${formatGenerationValue(stats.century.highIndex)}</span></td></tr>
+            <tr><th scope="row">Latest century low</th><td>${stats.century.low}</td><td><span class="graphJumpLink" data-gen="${stats.century.lowIndex}">#${formatGenerationValue(stats.century.lowIndex)}</span></td></tr>
+            <tr><th scope="row">Latest millennium high</th><td>${stats.millenium.high}</td><td><span class="graphJumpLink" data-gen="${stats.millenium.highIndex}">#${formatGenerationValue(stats.millenium.highIndex)}</span></td></tr>
+            <tr><th scope="row">Latest millennium low</th><td>${stats.millenium.low}</td><td><span class="graphJumpLink" data-gen="${stats.millenium.lowIndex}">#${formatGenerationValue(stats.millenium.lowIndex)}</span></td></tr>
+            <tr><th scope="row">All time high</th><td>${stats.allTime.high}</td><td><span class="graphJumpLink" data-gen="${stats.allTime.highIndex}">#${formatGenerationValue(stats.allTime.highIndex)}</span></td></tr>
+            <tr><th scope="row">All time low</th><td>${stats.allTime.low}</td><td><span class="graphJumpLink" data-gen="${stats.allTime.lowIndex}">#${formatGenerationValue(stats.allTime.lowIndex)}</span></td></tr>
+          </tbody>
+        </table>
+      ` : `<div class="graphInfoLine"><span class="graphMetricLabel">No history yet</span><strong>—</strong></div>`}
+    </div>
+  `;
+
+  panel.querySelectorAll('.graphJumpLink').forEach(link => {
+    link.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const targetGen = parseInt(event.currentTarget.dataset.gen, 10);
+      if (!isNaN(targetGen)) {
+        selectedGraphGeneration = targetGen;
+        scrollExpandedGraphToGeneration(targetGen);
+        redrawExpandedGraph();
+        updateExpandedGraphInfo();
+      }
+    });
+  });
+}
+
+function redrawExpandedGraph() {
+  const expandedCanvas = document.getElementById('expandedGraphCanvas');
+  if (!expandedCanvas) return;
+  const ctx = expandedCanvas.getContext('2d');
+  drawExpandedPopulationGraph(expandedCanvas, ctx);
+}
+
+function scrollExpandedGraphToGeneration(gen) {
+  const wrapper = document.getElementById('graphScrollWrapper');
+  const expandedCanvas = document.getElementById('expandedGraphCanvas');
+  if (!wrapper || !expandedCanvas || populationHistory.length < 2) return;
+  const leftMargin = 50;
+  const rightMargin = 20;
+  const effectiveWidth = Math.max(0, expandedCanvas.width - leftMargin - rightMargin);
+  const stepX = populationHistory.length > 1 ? effectiveWidth / (populationHistory.length - 1) : 0;
+  const clampedGen = Math.max(0, Math.min(gen, populationHistory.length - 1));
+  const x = leftMargin + clampedGen * stepX;
+  const targetScroll = Math.max(0, Math.min(x - wrapper.clientWidth / 2, expandedCanvas.width - wrapper.clientWidth));
+  wrapper.scrollLeft = targetScroll;
+}
+
+// Open graph modal
+function updateExpandedGraphControls() {
+  const expandedSpeed = document.getElementById("expandedGraphSpeed");
+  const expandedPlayBtn = document.getElementById("expandedGraphPlayBtn");
+  const mainSpeedInput = document.getElementById("speed");
+  if (expandedSpeed && mainSpeedInput) {
+    expandedSpeed.value = mainSpeedInput.value;
+  }
+  if (expandedPlayBtn) {
+    expandedPlayBtn.textContent = running ? "Running" : "Paused";
+    expandedPlayBtn.className = running ? "running" : "paused";
+  }
+}
+
+function openGraphModal() {
+  const modal = document.getElementById("graphModal");
+  modal.classList.add("active");
+  graphModalOpen = true;
+  
+  const container = document.getElementById("graphContainer");
+  const wrapper = document.getElementById("graphScrollWrapper");
+  const expandedCanvas = document.getElementById("expandedGraphCanvas");
+  const expandedSpeed = document.getElementById("expandedGraphSpeed");
+  const expandedPlayBtn = document.getElementById("expandedGraphPlayBtn");
+
+  expandedCanvas.width = Math.max(container.clientWidth - 40, populationHistory.length * 12 + 140);
+  expandedCanvas.height = Math.max(container.clientHeight - 190, 280);
+  wrapper.scrollLeft = Math.max(0, expandedCanvas.width - wrapper.clientWidth);
+
+  if (expandedSpeed) {
+    expandedSpeed.value = document.getElementById("speed").value;
+  }
+  if (expandedPlayBtn) {
+    updateExpandedGraphControls();
+  }
+
+  redrawExpandedGraph();
+  updateExpandedGraphInfo();
+}
+
+// Close graph modal
+function closeGraphModal() {
+  const modal = document.getElementById("graphModal");
+  modal.classList.remove("active");
+  graphModalOpen = false;
+}
+
+// Set up graph modal controls
+document.addEventListener("DOMContentLoaded", function() {
+  const graphCanvas = document.getElementById("graphCanvas");
+  if (graphCanvas) {
+    graphCanvas.addEventListener("click", openGraphModal);
+  }
+
+  // Close modal on Escape key
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") {
+      closeGraphModal();
+    }
+  });
+
+  // Close modal when clicking outside the container
+  const modal = document.getElementById("graphModal");
+  modal.addEventListener("click", function(e) {
+    if (e.target === modal) {
+      closeGraphModal();
+    }
+  });
+
+  const expandedSpeed = document.getElementById("expandedGraphSpeed");
+  const expandedPlayBtn = document.getElementById("expandedGraphPlayBtn");
+  const mainSpeed = document.getElementById("speed");
+  const generationScaleSelect = document.getElementById("graphGenerationScaleSelect");
+  if (generationScaleSelect) {
+    generationScaleSelect.value = graphGenerationScale;
+    generationScaleSelect.addEventListener("change", updateGraphGenerationScaleSetting);
+  }
+  const livingCountSelect = document.getElementById("livingCountDisplaySelect");
+  if (livingCountSelect) {
+    livingCountSelect.value = livingCountDisplay;
+    livingCountSelect.addEventListener("change", () => {
+      livingCountDisplay = livingCountSelect.value;
+      updateStats();
+      updateExpandedGraphInfo();
+    });
+  }
+  if (expandedSpeed) {
+    expandedSpeed.value = mainSpeed ? mainSpeed.value : "10";
+    expandedSpeed.addEventListener("input", function(e) {
+      if (mainSpeed) mainSpeed.value = e.target.value;
+    });
+  }
+  if (mainSpeed && expandedSpeed) {
+    mainSpeed.addEventListener("input", function(e) {
+      expandedSpeed.value = e.target.value;
+    });
+  }
+  if (expandedPlayBtn) {
+    updateExpandedGraphControls();
+  }
+
+  // Redraw expanded graph on window resize
+  window.addEventListener("resize", function() {
+    if (modal.classList.contains("active")) {
+      const expandedCanvas = document.getElementById("expandedGraphCanvas");
+      const container = document.getElementById("graphContainer");
+      const wrapper = document.getElementById("graphScrollWrapper");
+      expandedCanvas.width = Math.max(container.clientWidth - 40, populationHistory.length * 12 + 140);
+      expandedCanvas.height = Math.max(container.clientHeight - 190, 280);
+      wrapper.scrollLeft = Math.max(0, expandedCanvas.width - wrapper.clientWidth);
+      redrawExpandedGraph();
+    }
+  });
+});
+
+// Loop
+let lastTime=0;
+function loop(t){
+  requestAnimationFrame(loop);
+
+  // --- FPS CALC ---
+  frameCount++;
+  if (t - lastFpsTime >= 1000) {
+    fps = frameCount;
+    frameCount = 0;
+    lastFpsTime = t;
+
+    document.getElementById("fpsCount").textContent = fps;
+  }
+
+  let speed=document.getElementById("speed").value;
+
+  if(running && t-lastTime>1000/speed){
+    step();
+    lastTime=t;
+  }
+
+  draw();
+
+  // Keep data panel contents fresh while visible
+  if (showDataPanel) {
+    updateDataPanel();
+  }
+
+  // Update expanded graph if modal is open
+  if (graphModalOpen) {
+    const expandedCanvas = document.getElementById("expandedGraphCanvas");
+    if (expandedCanvas && expandedCanvas.width > 0) {
+      redrawExpandedGraph();
+    }
+  }
+}
+requestAnimationFrame(loop);
+
+// UI
+function togglePlay(){
+
+  if (!running) {
+    // Save current state to undo stack before starting
+    undoStack.push(createSnapshot());
+
+    // Limit history size
+    if (undoStack.length > MAX_HISTORY) {
+      undoStack.shift();
+    }
+
+    // Clear redo history when a new action branch starts
+    redoStack = [];
+
+    // Record the current population before the first step of the run
+    recordPopulationSnapshot();
+  }
+
+  running = !running;
+  updateButton();
+  updateExpandedGraphControls();
+
+  log(running ? "Simulation started" : "Simulation paused", "action");
+}
+
+function updateButton(){
+  const btn=document.getElementById("playBtn");
+  if(running){
+    btn.textContent="Running";
+    btn.className="running";
+  } else {
+    btn.textContent="Paused";
+    btn.className="paused";
+  }
+}
+
+function togglePauseOnInactive(enabled){
+  pauseOnInactive = enabled;
+  pausedByInactivity = false;
+  const checkbox = document.getElementById("pauseOnInactiveCheckbox");
+  if (checkbox) checkbox.checked = enabled;
+  log(enabled ? "Pause on inactive tab enabled" : "Pause on inactive tab disabled", "action");
+}
+
+function toggleAutoPauseWhenStatic(enabled){
+  autoPauseWhenStatic = enabled;
+  const checkbox = document.getElementById("autoPauseStaticCheckbox");
+  if (checkbox) checkbox.checked = enabled;
+  log(enabled ? "Auto-pause on stable graph enabled" : "Auto-pause on stable graph disabled", "action");
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (!pauseOnInactive) return;
+
+  if (document.hidden) {
+    if (running) {
+      pausedByInactivity = true;
+      running = false;
+      updateButton();
+      log("Paused because tab became inactive", "action");
+    }
+  } else {
+    if (pausedByInactivity) {
+      pausedByInactivity = false;
+      running = true;
+      updateButton();
+      log("Resumed because tab became active", "action");
+    }
+  }
+});
+
+function toggleSettingsPanel(e){
+  e.stopPropagation();
+  const panel = document.getElementById("settingsPanel");
+  if (!panel) return;
+  panel.style.display = panel.style.display === "block" ? "none" : "block";
+}
+
+function updateGraphGenerationScaleSetting() {
+  const select = document.getElementById("graphGenerationScaleSelect");
+  if (!select) return;
+  graphGenerationScale = select.value;
+  if (graphModalOpen) {
+    redrawExpandedGraph();
+    updateExpandedGraphInfo();
+  }
+  updateStats();
+  const graphCanvas = document.getElementById("graphCanvas");
+  if (graphCanvas) {
+    const ctx = graphCanvas.getContext("2d");
+    drawPopulationGraph(graphCanvas, ctx);
+  }
+}
+
+function updateGridButton(){
+  const btn=document.getElementById("gridBtn");
+  if(showGrid){
+    btn.textContent="Grid";
+    btn.className="running";
+  } else {
+    btn.textContent="Grid";
+    btn.className="paused";
+  }
+}
+
+function toggleGrid(){
+  showGrid = !showGrid;
+  updateGridButton();
+
+  log("Grid " + (showGrid ? "ON" : "OFF"), "action");
+}
+
+function updateFullCellButton(){
+  const btn = document.getElementById("fullCellBtn");
+  if(fullCellMode){
+    btn.textContent = "Full Cell";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Full Cell";
+    btn.className = "paused";
+  }
+}
+
+function toggleFullCell(){
+  fullCellMode = !fullCellMode;
+  updateFullCellButton();
+  log("Full Cell " + (fullCellMode ? "ON" : "OFF"), "action");
+}
+function updateHeatmapButton(){
+  const btn = document.getElementById("heatmapBtn");
+  if(heatmapMode){
+    btn.textContent = "Heatmap";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Heatmap";
+    btn.className = "paused";
+  }
+}
+
+function toggleHeatmap(){
+  heatmapMode = !heatmapMode;
+  if(heatmapMode){
+    colorMode = false;
+    updateColorButton();
+  }
+  updateHeatmapButton();
+
+  log("Heatmap " + (heatmapMode ? "ON" : "OFF"), "action");
+}
+
+function toggleGhost() {
+  ghostMode = !ghostMode;
+  const btn = document.getElementById("ghostBtn");
+  if(ghostMode) {
+    btn.textContent = "Ghost";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Ghost";
+    btn.className = "paused";
+  }
+
+  log("Ghost mode " + (ghostMode ? "ON" : "OFF"), "action");
+}
+
+function updateColorButton(){
+  const btn = document.getElementById("colorsBtn");
+  if(colorMode){
+    btn.textContent = "Colors";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Colors";
+    btn.className = "paused";
+  }
+}
+
+function toggleColors(){
+  colorMode = !colorMode;
+  if(colorMode){
+    heatmapMode = false;
+    updateHeatmapButton();
+  }
+  updateColorButton();
+
+  log("Colors " + (colorMode ? "ON" : "OFF"), "action");
+}
+
+function updateEraseButton(){
+  const btn = document.getElementById("eraseBtn");
+  if(eraseMode){
+    btn.textContent = "Erase";
+    btn.className = "running";
+  } else {
+    btn.textContent = "Erase";
+    btn.className = "paused";
+  }
+}
+
+function toggleErase(){
+  const patternSelect = document.getElementById("patternSelect");
+
+  if(!eraseMode){
+    // Enter erase mode: remember current brush and switch to draw
+    previousPattern = patternSelect.value;
+    patternSelect.value = "draw";
+    eraseMode = true;
+  } else {
+    // Exit erase mode: restore previous brush
+    eraseMode = false;
+    patternSelect.value = previousPattern || "draw";
+  }
+
+  updateEraseButton();
+
+  log("Erase mode " + (eraseMode ? "ON" : "OFF"), "action");
+}
+
+minimapCanvas.addEventListener("click", (e) => {
+  if (grid.size === 0) return;
+
+  let rect = minimapCanvas.getBoundingClientRect();
+  let mx = e.clientX - rect.left;
+  let my = e.clientY - rect.top;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  for (let k of grid) {
+    let [x, y] = parse(k);
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+
+  let width = maxX - minX + 1;
+  let height = maxY - minY + 1;
+
+  let scaleX = minimapCanvas.width / width;
+  let scaleY = minimapCanvas.height / height;
+  let scale = Math.min(scaleX, scaleY);
+
+  let offsetXMinimap = (minimapCanvas.width - width * scale) / 2;
+  let offsetYMinimap = (minimapCanvas.height - height * scale) / 2;
+
+  let worldX = minX + (mx - offsetXMinimap) / scale;
+  let worldY = minY + (my - offsetYMinimap) / scale;
+
+  // Center view on clicked position
+  offsetX = canvas.width / 2 - worldX * cellSize;
+  offsetY = canvas.height / 2 - worldY * cellSize;
+});
+
+// If user changes brush while erase is active, disable erase
+const patternSelectEl = document.getElementById("patternSelect");
+patternSelectEl.addEventListener("change", (e) => {
+  if(eraseMode && e.target.value !== "draw"){
+    eraseMode = false;
+    updateEraseButton();
+  }
+  
+  // NEW: Show/Hide Density Slider
+  const densityContainer = document.getElementById("chaosDensityContainer");
+  if(e.target.value === "chaos") {
+    densityContainer.style.display = "flex";
+  } else {
+    densityContainer.style.display = "none";
+  }
+
+  // ADD THIS LINE
+  patternGhostPreview = true;
+});
+
+function clearGrid(){ 
+  grid.clear();
+  generation = 0;
+  running = false;
+  staticGenerationCount = 0;
+  samePopulationCount = 0;
+  populationHistory = [];
+  cellAges.clear();
+  wallRegions.clear();
+  selectedGraphGeneration = null;
+  updateButton();
+  updateStats();
+  updateGraphStats();
+  
+  document.getElementById("statPeak").textContent = "0";
+  document.getElementById("statLow").textContent = "0";
+  document.getElementById("statAvg").textContent = "0";
+  document.getElementById("statSlope").textContent = "0";
+  document.getElementById("statTrend").textContent = "-";
+  document.getElementById("statStability").textContent = "-";
+  updateExpandedGraphInfo();
+
+  if (graphModalOpen) {
+    const expandedCanvas = document.getElementById("expandedGraphCanvas");
+    if (expandedCanvas) {
+      const ctx = expandedCanvas.getContext("2d");
+      drawExpandedPopulationGraph(expandedCanvas, ctx);
+    }
+    updateExpandedGraphInfo();
+  }
+
+  log("Grid cleared", "action");
+}
+
+function updateStats(){
+  document.getElementById("genCount").textContent = formatGenerationValue(generation);
+  const scaleLabel = document.getElementById("generationScaleLabel");
+  if (scaleLabel) {
+    const scaleName = graphGenerationScale === "default"
+      ? "generations"
+      : graphGenerationScale === "decade"
+        ? "decades"
+        : graphGenerationScale === "century"
+          ? "centuries"
+          : "millennia";
+    scaleLabel.textContent = `(${scaleName})`;
+  }
+  document.getElementById("liveCount").textContent = formatLivingCount(grid.size);
+  updateDataPanel();
+}
+
+function getBoundsFromSet(cellSet) {
+  if (!cellSet || cellSet.size === 0) return null;
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const keyStr of cellSet) {
+    const [x, y] = parse(keyStr);
+    x1 = Math.min(x1, x);
+    y1 = Math.min(y1, y);
+    x2 = Math.max(x2, x);
+    y2 = Math.max(y2, y);
+  }
+  return { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+}
+
+function readStoredArray(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn(`Failed to read ${key} from localStorage`, error);
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+    return [];
+  }
+}
+
+function writeStoredArray(key, list) {
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+  } catch (error) {
+    console.warn(`Failed to write ${key} to localStorage`, error);
+  }
+}
+
+function getCustomPatterns() {
+  return readStoredArray('customPatterns');
+}
+
+function saveCustomPatterns(list) {
+  writeStoredArray('customPatterns', list);
+}
+
+function getCellsForWholeGrid() {
+  if (grid.size === 0) return [];
+  const bounds = getBoundsFromSet(grid);
+  return Array.from(grid).map(k => {
+    const [x, y] = parse(k);
+    return [x - bounds.x1, y - bounds.y1];
+  });
+}
+
+function saveCustomPatternToLibrary(cells, width, height, name, description) {
+  const list = getCustomPatterns();
+  const uid = `${Date.now()}-${Math.floor(Math.random() * 9999)}`;
+  const fileId = `custom:${uid}`;
+  const rule = `B${Array.from(birthSet).sort((a, b) => a - b).join('')}/S${Array.from(survivalSet).sort((a, b) => a - b).join('')}`;
+
+  const entry = {
+    id: uid,
+    'Pattern File': fileId,
+    Name: name,
+    Description: description,
+    Rule: rule,
+    Cells: String(cells.length),
+    'Bounding Box': `${width}x${height}`,
+    cells
+  };
+
+  list.unshift(entry);
+  saveCustomPatterns(list);
+
+  alert(`Saved '${name}' to custom library.`);
+}
+
+function saveGridToLibrary() {
+  if (grid.size === 0) {
+    log('Nothing to save: grid is empty.', 'warn');
+    return;
+  }
+
+  const cells = getCellsForWholeGrid();
+  const bounds = getBoundsFromSet(grid);
+  const name = prompt('Pattern name for your grid:', 'Custom grid');
+  if (!name) return;
+
+  saveCustomPatternToLibrary(cells, bounds.width, bounds.height, name, `Saved from full grid (${cells.length} cells)`);
+}
+
+function saveSelectionToLibrary() {
+  if (!selectionRect) {
+    log('No selection to save. Select an area first.', 'warn');
+    return;
+  }
+
+  const cells = getCellsInSelection();
+  if (!cells || cells.length === 0) {
+    log('Selected area contains no live cells.', 'warn');
+    return;
+  }
+
+  const name = prompt('Pattern name for selected area:', 'Custom selection');
+  if (!name) return;
+
+  saveCustomPatternToLibrary(cells, selectionRect.width, selectionRect.height, name, `Saved from selection (${cells.length} cells)`);
+}
+
+function updateDataPanel(){
+  const live = grid.size;
+  const bounds = getBoundsFromSet(grid);
+  const area = bounds ? bounds.width * bounds.height : 0;
+  const density = area ? Math.round((live / area) * 1000) / 10 : 0;
+
+  document.getElementById("dataLive").textContent = formatLivingCount(live);
+  document.getElementById("dataBB").textContent = bounds ? `${bounds.width}x${bounds.height}` : "0x0";
+  document.getElementById("dataArea").textContent = area;
+  document.getElementById("dataDensity").textContent = `${density}%`;
+
+  const selLive = selectedCells.size;
+  const selBounds = selectionRect || getBoundsFromSet(selectedCells);
+  const selArea = selBounds ? selBounds.width * selBounds.height : 0;
+  const selDensity = selArea ? Math.round((selLive / selArea) * 1000) / 10 : 0;
+
+  document.getElementById("dataSelLive").textContent = selLive || "-";
+  document.getElementById("dataSelBB").textContent = selBounds ? `${selBounds.width}x${selBounds.height}` : "-";
+  document.getElementById("dataSelArea").textContent = selArea || "-";
+  document.getElementById("dataSelDensity").textContent = selBounds ? `${selDensity}%` : "-";
+}
+
+function toggleDataPanel(){
+  showDataPanel = !showDataPanel;
+  const panel = document.getElementById('dataPanel');
+  if(panel){
+    panel.style.display = showDataPanel ? 'flex' : 'none';
+    if(showDataPanel){
+      updateDataPanel();
+      const left = Math.min(mouseX + 12, window.innerWidth - panel.offsetWidth - 10);
+      const top = Math.min(mouseY + 12, window.innerHeight - panel.offsetHeight - 10);
+      panel.style.left = `${Math.max(10, left)}px`;
+      panel.style.top = `${Math.max(10, top)}px`;
+    }
+  } else {
+    updateDataPanel();
+  }
+}
+
+function toggleWall(){
+  if(!selectionRect){
+    log("No selection - select an area first", "warn");
+    return;
+  }
+
+  let hasWall = false;
+  for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
+    for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+      if(wallRegions.has(key(x,y))){
+        hasWall = true;
+        break;
+      }
+    }
+    if(hasWall) break;
+  }
+
+  if(hasWall){
+    for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
+      for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+        wallRegions.delete(key(x,y));
+      }
+    }
+    log(`Removed ${selectionRect.width}×${selectionRect.height} wall area`, "action");
+  } else {
+    for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
+      for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+        wallRegions.add(key(x,y));
+      }
+    }
+    log(`Set ${selectionRect.width}×${selectionRect.height} area as wall`, "action");
+  }
+}
+
+function updateGraphStats() {
+  if (populationHistory.length === 0) return;
+
+  const peak = Math.max(...populationHistory);
+  const low = Math.min(...populationHistory);
+  const avg = populationHistory.reduce((a,b)=>a+b,0) / populationHistory.length;
+
+  const n = populationHistory.length;
+
+  // stability (variance-based)
+  const variance = populationHistory.reduce(
+    (a,b)=>a + Math.pow(b-avg,2),0
+  ) / n;
+
+// --- IMPROVED SLOPE: Use recent window (last 50 generations) ---
+  const windowSize = Math.min(50, populationHistory.length);
+  const recentData = populationHistory.slice(-windowSize);
+  const windowN = recentData.length;
+  
+  let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+  for (let i = 0; i < windowN; i++) {
+    sumX += i;
+    sumY += recentData[i];
+    sumXY += i * recentData[i];
+    sumXX += i * i;
+  }
+
+  const denom = (windowN * sumXX - sumX * sumX);
+  let slope = 0;
+
+  if (denom !== 0) {
+    slope = (windowN * sumXY - sumX * sumY) / denom;
+  }
+
+  // --- IMPROVED STABILITY: Detect periodicity and consistency ---
+  let stability = "High";
+  let volatility = 0;
+  
+  // Calculate short-term volatility (recent changes)
+  const recentWindow = Math.min(20, populationHistory.length);
+  const recent = populationHistory.slice(-recentWindow);
+  for (let i = 1; i < recent.length; i++) {
+    volatility += Math.abs(recent[i] - recent[i - 1]);
+  }
+  volatility /= (recent.length - 1);
+  
+  // Normalize volatility by average population
+  const recentAvg = recent.reduce((a,b)=>a+b,0) / recent.length;
+  const normVol = volatility / (recentAvg || 1);
+  
+  // Check for periodicity (autocorrelation-like)
+  let periodicity = 0;
+  if (recent.length >= 10) {
+    const periodCheck = Math.min(10, Math.floor(recent.length / 2));
+    for (let p = 2; p <= periodCheck; p++) {
+      let correlation = 0;
+      let count = 0;
+      for (let i = p; i < recent.length; i++) {
+        correlation += (recent[i] - recentAvg) * (recent[i - p] - recentAvg);
+        count++;
+      }
+      correlation /= count;
+      if (correlation > periodicity) periodicity = correlation;
+    }
+    periodicity /= (recent.reduce((a,b)=>a + Math.pow(b-recentAvg,2),0) / recent.length);
+  }
+  
+  // Determine stability based on volatility and periodicity
+  if (normVol < 0.05 && periodicity > 0.7) {
+    stability = "High"; // Very stable, possibly periodic
+  } else if (normVol < 0.15 && periodicity > 0.4) {
+    stability = "Medium"; // Moderately stable
+  } else if (normVol < 0.3) {
+    stability = "Low"; // Unstable but not chaotic
+  } else {
+    stability = "Chaotic"; // Highly unstable
+  }
+
+  // --- TREND DETECTION ---
+  let trend = "Static";
+  const recentSlope = slope;
+  const recentChange = normVol;
+  
+  if (Math.abs(recentSlope) > 0.05) {
+    trend = recentSlope > 0 ? "Growing" : "Shrinking";
+  } else if (recentChange > 0.2) {
+    trend = "Oscillating";
+  } else if (recentChange > 0.05) {
+    trend = "Dynamic";
+  }
+
+  document.getElementById("statPeak").textContent = formatLivingCount(peak);
+  document.getElementById("statLow").textContent = formatLivingCount(low);
+  document.getElementById("statAvg").textContent = formatLivingCount(avg);
+  const slopeEl = document.getElementById("statSlope");
+slopeEl.textContent = slope.toFixed(3);
+
+// Color coding for slope
+if (slope > 0.02) {
+  slopeEl.style.color = "lime";   // growing
+} else if (slope < -0.02) {
+  slopeEl.style.color = "red";    // shrinking
+} else {
+  slopeEl.style.color = "white";  // stable
+}
+  document.getElementById("statTrend").textContent = trend;
+  document.getElementById("statStability").textContent = stability;
+}
+
+function doStep(){
+  if(!running){
+    step();
+  }
+}
+
+function resetView(){
+  cellSize = 20;
+  offsetX = 0;
+  offsetY = 0;
+}
+
+function parseRLE(rle) {
+  // --- CLEAN INPUT ---
+  rle = rle
+    .split("\n")
+    .filter(line => 
+      !line.startsWith("#") &&     // remove comments
+      !line.startsWith("x")        // remove header
+    )
+    .join("")
+    .replace(/\s+/g, "");          // remove whitespace
+
+  let cells = [];
+  let x = 0, y = 0;
+  let count = "";
+
+  for (let i = 0; i < rle.length; i++) {
+    let c = rle[i];
+
+    if (!isNaN(c)) {
+      count += c;
+      continue;
+    }
+
+    let num = count ? parseInt(count) : 1;
+    count = "";
+
+    if (c === "o") {
+      for (let j = 0; j < num; j++) {
+        cells.push([x + j, y]);
+      }
+      x += num;
+    }
+
+    else if (c === "b") {
+      x += num;
+    }
+
+    else if (c === "$") {
+      y += num;
+      x = 0;
+    }
+
+    else if (c === "!") {
+      break;
+    }
+  }
+
+  return cells;
+}
+
+async function fetchRLEFromURL(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Network response not ok ('+res.status+')');
+  const text = await res.text();
+
+  // Try to locate an RLE header `x = ...` then extract until the terminating `!`
+  const headerIdx = text.search(/x\s*=\s*\d+/i);
+  if(headerIdx === -1){
+    // try to find inside <pre> blocks
+    const preMatch = text.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+    if(preMatch){
+      const pre = preMatch[1];
+      const preHeader = pre.search(/x\s*=\s*\d+/i);
+      if(preHeader !== -1){
+        const start = pre.indexOf('x', preHeader);
+        const end = pre.indexOf('!', start);
+        if(end !== -1){
+          const block = pre.substring(start, end+1);
+          const lines = block.split(/\r?\n/);
+          lines.shift();
+          return lines.join('').replace(/\s+/g,'');
+        }
+      }
+    }
+    throw new Error('No RLE header found on page');
+  }
+
+  const exIdx = text.indexOf('!', headerIdx);
+  if(exIdx === -1) throw new Error('No terminating "!" found for RLE on page');
+  const block = text.substring(headerIdx, exIdx+1);
+  const lines = block.split(/\r?\n/);
+  lines.shift();
+  const rle = lines.join('').replace(/\s+/g,'');
+  return rle;
+}
+
+async function importRLE(){
+  let rleText = document.getElementById("rleInput").value.trim();
+  if(!rleText){
+    alert("Please paste an RLE string or a pattern URL");
+    return;
+  }
+
+  // If the user pasted a URL, attempt to fetch and extract the RLE
+  if(/^https?:\/\//i.test(rleText)){
+    try{
+      const fetched = await fetchRLEFromURL(rleText);
+      rleText = fetched;
+    } catch(e){
+      alert('Failed to fetch RLE from URL: ' + e.message + '\nIf the site blocks cross-origin requests, open the pattern page, click the raw/RLE view and paste the RLE text here.');
+      return;
+    }
+  }
+
+  try {
+    let cells = parseRLE(rleText);
+    if(cells.length === 0){
+      alert("No cells found in RLE");
+      return;
+    }
+
+    let patternName = "imported_" + Date.now();
+    patterns[patternName] = cells;
+
+    // Place imported pattern using its natural coordinates
+    for (let [dx, dy] of cells) {
+      const k = key(dx, dy);
+      grid.add(k);
+      cellAges.set(k, 0);
+    }
+
+    // Fit the imported pattern to the screen
+    fitPatternToScreen(cells);
+    log(`Imported pattern from RLE (${cells.length} cells)`, "action");
+    log("Auto fit shape to screen", "system");
+
+    let select = document.getElementById("patternSelect");
+    let option = document.createElement("option");
+    option.value = patternName;
+    option.textContent = "Imported";
+    option.title = cells.length + " cells";
+    select.appendChild(option);
+select.value = patternName;
+select.dispatchEvent(new Event("change"));
+
+    document.getElementById("rleInput").value = "";
+    alert("Pattern imported! (" + cells.length + " cells)");
+  } catch(e){
+    alert("Error parsing RLE: " + e.message);
+  }
+}
+
+updateGridButton();
+updateFullCellButton();
+updateEraseButton();
+updateColorButton();
+updateHeatmapButton();
+updateStats();
+
+// Rules UI (render boxes, handle changes)
+function renderRuleBoxes(){
+  const surviveContainer = document.getElementById('surviveBoxes');
+  const birthContainer = document.getElementById('birthBoxes');
+  surviveContainer.innerHTML = '';
+  birthContainer.innerHTML = '';
+
+  for(let i=0;i<=8;i++){
+    // survive
+    let sb = document.createElement('label');
+    sb.className = 'rule-checkbox';
+    sb.title = `Survive if neighbors = ${i}`;
+    sb.innerHTML = `<input type="checkbox" id="survive_${i}" ${survivalSet.has(i)?'checked':''} /><span class="rule-num">${i}</span><span class="rule-check">✓</span>`;
+    surviveContainer.appendChild(sb);
+    document.getElementById(`survive_${i}`).addEventListener('change', (e)=> onRuleCheckboxChange('survive', i, e.target.checked));
+
+    // birth
+    let bb = document.createElement('label');
+    bb.className = 'rule-checkbox';
+    bb.title = `Birth if neighbors = ${i}`;
+    bb.innerHTML = `<input type="checkbox" id="birth_${i}" ${birthSet.has(i)?'checked':''} /><span class="rule-num">${i}</span><span class="rule-check">✓</span>`;
+    birthContainer.appendChild(bb);
+    document.getElementById(`birth_${i}`).addEventListener('change', (e)=> onRuleCheckboxChange('birth', i, e.target.checked));
+  }
+  updateRuleString();
+}
+
+function onRuleCheckboxChange(type, n, checked){
+  if(type === 'survive'){
+    if(checked) survivalSet.add(n);
+    else survivalSet.delete(n);
+  } else {
+    if(checked) birthSet.add(n);
+    else birthSet.delete(n);
+  }
+  updateRuleString();
+
+  const ruleStringEl = document.getElementById('ruleString');
+  log(`Rule updated → ${ruleStringEl ? ruleStringEl.textContent : 'B?/?S?'}`, "action");
+}
+
+function updateRuleString(){
+  const s = Array.from(survivalSet).sort((a,b)=>a-b).join('');
+  const b = Array.from(birthSet).sort((a,b)=>a-b).join('');
+  const ruleStringEl = document.getElementById('ruleString');
+  if (ruleStringEl) {
+    ruleStringEl.textContent = `B${b}/S${s}`;
+  }
+}
+
+function selectAll(which){
+  if(which === 'survive'){
+    for(let i=0;i<=8;i++) survivalSet.add(i);
+  } else {
+    for(let i=0;i<=8;i++) birthSet.add(i);
+  }
+  renderRuleBoxes();
+}
+
+function clearAll(which){
+  if(which === 'survive'){
+    survivalSet.clear();
+  } else {
+    birthSet.clear();
+  }
+  renderRuleBoxes();
+}
+
+function resetRules(){
+  survivalSet = new Set([2,3]);
+  birthSet = new Set([3]);
+  renderRuleBoxes();
+  updateRuleString();
+}
+
+function applyRulePreset(ruleStr) {
+  if (!ruleStr) return; // Empty selection
+  
+  const match = ruleStr.match(/B(\d*)\/S(\d*)/i);
+  if (!match) return;
+  
+  const birthStr = match[1] || "";
+  const surviveStr = match[2] || "";
+  
+  birthSet.clear();
+  survivalSet.clear();
+  
+  for (let char of birthStr) {
+    const num = parseInt(char);
+    if (!isNaN(num)) birthSet.add(num);
+  }
+  
+  for (let char of surviveStr) {
+    const num = parseInt(char);
+    if (!isNaN(num)) survivalSet.add(num);
+  }
+  
+  renderRuleBoxes();
+  updateRuleString();
+  log(`Rule preset applied: ${ruleStr}`, "action");
+}
+
+function applyRuleString(ruleStr) {
+  const match = ruleStr.match(/B(\d*)\/S(\d*)/i);
+
+  if (!match) {
+    log("Invalid rule format. Use B3/S23");
+    return;
+  }
+
+  const b = match[1].split("").map(Number);
+  const s = match[2].split("").map(Number);
+
+  birthSet = new Set(b);
+  survivalSet = new Set(s);
+
+  renderRuleBoxes();
+  updateRuleString();
+
+  log("Rule set to " + ruleStr.toUpperCase());
+}
+  
+// Rules panel toggling
+let rulesOpen = false;
+function toggleRules(){
+  rulesOpen = !rulesOpen;
+  const panel = document.getElementById('rulesPanel');
+  const btn = document.getElementById('rulesBtn');
+  if(rulesOpen){
+    panel.style.display = 'block';
+    btn.className = 'running';
+  } else {
+    panel.style.display = 'none';
+    btn.className = 'paused';
+  }
+
+  log("Rules panel " + (rulesOpen ? "OPENED" : "CLOSED"), "action");
+}
+
+function restoreSnapshot(snapshot) {
+  grid = new Set(snapshot.grid);
+  cellAges = new Map(snapshot.cellAges);
+  generation = snapshot.generation;
+  populationHistory = [...snapshot.populationHistory];
+  staticGenerationCount = 0;
+
+  running = false;
+  updateButton();
+  updateStats();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+
+  redoStack.push(createSnapshot());
+
+  const prev = undoStack.pop();
+  restoreSnapshot(prev);
+
+  log("Undo", "action");
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+
+  undoStack.push(createSnapshot());
+
+  const next = redoStack.pop();
+  restoreSnapshot(next);
+
+  log("Redo", "action");
+}
+
+// Keys
+// Keys
+window.addEventListener("keydown", e => {
+
+  // Ignore key presses when typing in inputs/selects
+  const tag = document.activeElement.tagName.toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") {
+    return;
+  }
+
+  if (e.code === "Space") {
+    e.preventDefault();
+    togglePlay();
+  }
+  
+if (e.ctrlKey && e.key.toLowerCase() === "z") {
+  e.preventDefault();
+  undo();
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "a") {
+  e.preventDefault();
+  selectAllCells();
+  return;
+}
+
+if (e.key.toLowerCase() === "w") {
+  e.preventDefault();
+  wandMode = !wandMode;
+  log(wandMode ? "Wand mode ON - click to select blobs" : "Wand mode OFF", "action");
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "c") {
+  e.preventDefault();
+  copySelection(false);
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "x") {
+  e.preventDefault();
+  copySelection(true);
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "v") {
+  e.preventDefault();
+  openClipboardMenu();
+  return;
+}
+
+if (e.key.toLowerCase() === "v") {
+  patternRotation = (patternRotation + 90) % 360;
+  log("Pattern rotated to " + patternRotation + "°", "action");
+}
+
+if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "m") {
+  e.preventDefault();
+  mirrorLineMode = true;
+  mirrorLineConstrained = true;
+  mirrorLinePlacing = false;
+  mirrorLineStart = null;
+  log("Constrained mirror line mode enabled. Click and drag to draw a 45°-snapped line.", "action");
+  return;
+}
+
+if (e.shiftKey && e.key.toLowerCase() === "m") {
+  e.preventDefault();
+  mirrorLineMode = true;
+  mirrorLineConstrained = false;
+  mirrorLinePlacing = false;
+  mirrorLineStart = null;
+  log("Mirror line mode enabled. Click and drag to draw the line.", "action");
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "d") {
+    e.preventDefault();
+    toggleDataPanel();
+    return;
+  }
+
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "w") {
+    e.preventDefault();
+    toggleWall();
+    return;
+  }
+
+  if (e.key.toLowerCase() === "m") {
+  patternMirror = (patternMirror + 1) % 3;
+  let label = "Pattern mirror: ";
+
+  if (patternMirror === 1) {
+    label += "horizontal";
+  } else if (patternMirror === 2) {
+    label += "vertical";
+  } else {
+    label += "none";
+  }
+
+  log(label, "action");
+}
+
+if (e.key.toLowerCase() === "d") {
+  e.preventDefault();
+  if (mirrorLines.length > 0 || mirrorLine) {
+    mirrorLines = [];
+    mirrorLine = null;
+    log("Mirror lines removed", "action");
+    return;
+  }
+  clearSelection();
+  log("Selection cleared", "action");
+  return;
+}
+
+if (e.ctrlKey && e.key.toLowerCase() === "y") {
+  e.preventDefault();
+  redo();
+  return;
+}
+
+  // Brush size shortcuts
+  if (e.key.toLowerCase() === "s") {
+    sHeld = true;
+  }
+
+  if (e.key === "[") {
+    if (sHeld) {
+      const speedInput = document.getElementById("speed");
+      speedInput.value = Math.max(parseInt(speedInput.min), parseInt(speedInput.value) - 1);
+      speedInput.dispatchEvent(new Event("input"));
+    } else {
+      const brushInput = document.getElementById("brushSize");
+      brushInput.value = Math.max(parseInt(brushInput.min), parseInt(brushInput.value) - 1);
+      brushInput.dispatchEvent(new Event("input"));
+    }
+  }
+
+  if (e.key === "]") {
+    if (sHeld) {
+      const speedInput = document.getElementById("speed");
+      speedInput.value = Math.min(parseInt(speedInput.max), parseInt(speedInput.value) + 1);
+      speedInput.dispatchEvent(new Event("input"));
+    } else {
+      const brushInput = document.getElementById("brushSize");
+      brushInput.value = Math.min(parseInt(brushInput.max), parseInt(brushInput.value) + 1);
+      brushInput.dispatchEvent(new Event("input"));
+    }
+  }
+
+  if (e.key.toLowerCase() === "e") {
+    e.preventDefault();
+    toggleErase();
+  }
+
+  if (e.key.toLowerCase() === "f") {
+    e.preventDefault();
+    toggleFullCell();
+  }
+
+  if (e.key.toLowerCase() === "g") {
+    toggleGrid();
+  }
+
+  if (e.key.toLowerCase() === "p") {
+  e.preventDefault();
+  patternGhostPreview = !patternGhostPreview;
+  }
+
+  if (e.key.toLowerCase() === "b") {
+  e.preventDefault();
+
+  const select = document.getElementById("patternSelect");
+
+  // Only change if not already brush
+  if (select.value !== "draw") {
+    select.value = "draw";
+
+    // Manually trigger change logic safely
+    select.dispatchEvent(new Event("change"));
+  }
+
+  // Ensure erase mode is off
+  if (eraseMode) toggleErase();
+}
+
+  if (e.key.toLowerCase() === "h") {
+    toggleUI();
+  }
+
+  if (e.key.toLowerCase() === "c") {
+    if (!colorMode && !heatmapMode) {
+      toggleColors();
+    } else if (colorMode) {
+      toggleHeatmap();
+    } else {
+      heatmapMode = false;
+      colorMode = false;
+      updateHeatmapButton();
+      updateColorButton();
+    }
+  }
+
+  if (e.key.toLowerCase() === "r") {
+    e.preventDefault();
+    toggleRules();
+  }
+
+  if (e.key.toLowerCase() === "t") {
+    toggleGhost();
+  }
+
+  if (e.key.toLowerCase() === "x") {
+    e.preventDefault();
+    step();
+    log("Stepped 1 generation", "action");
+  }
+
+  if (e.key === "0") {
+    e.preventDefault();
+    resetView();
+    log("View reset", "action");
+  }
+
+  if (e.key === "Delete" || e.key === "Backspace") {
+    e.preventDefault();
+    if (selectionRect || selectedCells.size > 0 || selectionActive) {
+      clearSelectionContents();
+    } else {
+      clearGrid();
+      log("Grid cleared", "action");
+    }
+  }
+
+});
+
+window.addEventListener("keyup", e => {
+  if (e.key.toLowerCase() === "s") {
+    sHeld = false;
+  }
+});
+
+document.addEventListener("click", e => {
+  const menu = document.getElementById("clipboardMenu");
+  if (menu && menu.style.display === "block" && !menu.contains(e.target)) {
+    menu.style.display = "none";
+  }
+
+  const panel = document.getElementById("settingsPanel");
+  const settingsBtn = document.getElementById("settingsBtn");
+  if (panel && panel.style.display === "block" && !panel.contains(e.target) && settingsBtn && !settingsBtn.contains(e.target)) {
+    panel.style.display = "none";
+  }
+});
+
+// Mouse
+canvas.addEventListener("mousedown",e=>{
+  if(e.button === 2){
+    panning=true;
+    return;
+  }
+
+  if (mirrorLineMode) {
+    e.preventDefault();
+    mirrorLinePlacing = true;
+    mirrorLineStart = [Math.floor((e.clientX-offsetX)/cellSize), Math.floor((e.clientY-offsetY)/cellSize)];
+    return;
+  }
+
+  if(wandMode){
+    e.preventDefault();
+    const gx = Math.floor((e.clientX-offsetX)/cellSize);
+    const gy = Math.floor((e.clientY-offsetY)/cellSize);
+    const startKey = key(gx, gy);
+
+    if(!grid.has(startKey)){
+      log("No live cell under cursor.", "warn");
+      return;
+    }
+
+    const stack = [startKey];
+    const visited = new Set([startKey]);
+    const neighbors = [
+      [-1,-1],[-1,0],[-1,1],
+      [0,-1],[0,1],
+      [1,-1],[1,0],[1,1]
+    ];
+    let x1 = gx;
+    let y1 = gy;
+    let x2 = gx;
+    let y2 = gy;
+
+    while(stack.length){
+      const current = stack.pop();
+      const [x, y] = parse(current);
+
+      for(const [dx, dy] of neighbors){
+        const nx = x + dx;
+        const ny = y + dy;
+        const nkey = key(nx, ny);
+
+        if(grid.has(nkey) && !visited.has(nkey)){
+          visited.add(nkey);
+          stack.push(nkey);
+          x1 = Math.min(x1, nx);
+          y1 = Math.min(y1, ny);
+          x2 = Math.max(x2, nx);
+          y2 = Math.max(y2, ny);
+        }
+      }
+    }
+
+    const action = e.ctrlKey ? "subtract" : e.shiftKey ? "add" : "replace";
+
+    if(action === "replace"){
+      selectedCells = new Set(visited);
+    } else if(action === "add"){
+      for(const keyStr of visited) selectedCells.add(keyStr);
+    } else {
+      for(const keyStr of visited) selectedCells.delete(keyStr);
+    }
+
+    updateSelectionRectFromCells();
+
+    if(selectedCells.size === 0){
+      log("Selection cleared.", "action");
+    } else if(action === "replace"){
+      log(`Selected ${visited.size} conjoined cells ${selectionRect.width}×${selectionRect.height}`, "action");
+    } else if(action === "add"){
+      log(`Added ${visited.size} cells to selection (${selectedCells.size} total)`, "action");
+    } else {
+      log(`Removed ${visited.size} cells from selection (${selectedCells.size} remaining)`, "action");
+    }
+    return;
+  }
+
+  if(e.ctrlKey){
+    e.preventDefault();
+    selectionActive = true;
+    selectionStart = [Math.floor((e.clientX-offsetX)/cellSize), Math.floor((e.clientY-offsetY)/cellSize)];
+    selectionEnd = [...selectionStart];
+    selectionRect = null;
+    closeClipboardMenu();
+    return;
+  }
+
+  drawing=true;
+  drawCellCount = 0;
+  eraseCellCount = 0;
+
+  // SAVE STATE BEFORE MODIFYING GRID
+  undoStack.push(createSnapshot());
+
+  if (undoStack.length > MAX_HISTORY) {
+    undoStack.shift();
+  }
+
+  // Clear redo stack on new action
+  redoStack = [];
+
+  running=false;
+  updateButton();
+
+  lastDrawnCell=null;
+  lastDrawCoords=null;
+  orthoAxis = null;
+
+  place(e);
+});
+
+canvas.addEventListener("mousemove",e=>{
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+
+  if(selectionActive){
+    selectionEnd = [Math.floor((e.clientX-offsetX)/cellSize), Math.floor((e.clientY-offsetY)/cellSize)];
+    return;
+  }
+
+  if(drawing) place(e);
+
+  if(panning){
+    if(e.shiftKey){
+      // constrain shift-panning to axis-aligned move (horizontal OR vertical)
+      if(Math.abs(e.movementX) > Math.abs(e.movementY)){
+        offsetX += e.movementX;
+      } else {
+        offsetY += e.movementY;
+      }
+    } else {
+      offsetX += e.movementX;
+      offsetY += e.movementY;
+    }
+  }
+});
+
+canvas.addEventListener("mouseup", () => {
+  if (mirrorLinePlacing) {
+    mirrorLinePlacing = false;
+    mirrorLineMode = false;
+    let end = [Math.floor((mouseX - offsetX) / cellSize), Math.floor((mouseY - offsetY) / cellSize)];
+    if (mirrorLineConstrained) {
+      end = getSnappedMirrorLineEnd(mirrorLineStart, end);
+    }
+    if (mirrorLineStart && (end[0] !== mirrorLineStart[0] || end[1] !== mirrorLineStart[1])) {
+      mirrorLine = [mirrorLineStart, end];
+      if (mirrorLines.length < 2) {
+        mirrorLines.push(mirrorLine);
+        const lineNumber = mirrorLines.length;
+        log(`Mirror line ${lineNumber} set from ${mirrorLineStart[0]},${mirrorLineStart[1]} to ${end[0]},${end[1]}`, "action");
+      } else {
+        log("Two mirror lines already set. Press D to clear them before adding another.", "warn");
+      }
+    } else {
+      log("Mirror line placement cancelled: line too short.", "warn");
+    }
+    mirrorLineStart = null;
+    mirrorLineConstrained = false;
+    return;
+  }
+
+  if(selectionActive){
+    selectionActive = false;
+    selectionRect = getSelectionBounds();
+    if(selectionRect && selectionRect.width > 0 && selectionRect.height > 0){
+      selectedCells.clear();
+      for(const keyStr of grid){
+        const [x, y] = parse(keyStr);
+        if(x >= selectionRect.x1 && x <= selectionRect.x2 && y >= selectionRect.y1 && y <= selectionRect.y2){
+          selectedCells.add(keyStr);
+        }
+      }
+      log(`Selected area ${selectionRect.width}×${selectionRect.height}`, "action");
+    } else {
+      clearSelection();
+    }
+    return;
+  }
+
+  const brush = document.getElementById("brushSize").value;
+
+  if (drawing && drawCellCount > 0) {
+    log(`Drawn ${drawCellCount} cells, size ${brush}`, "action");
+  }
+
+  if (drawing && eraseCellCount > 0) {
+    log(`Erased ${eraseCellCount} cells, size ${brush}`, "action");
+  }
+
+  drawing = false;
+  panning = false;
+  lastDrawnCell = null;
+  lastDrawCoords = null;
+  orthoAxis = null;
+});
+
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+
+// Place
+function paintCell(x, y, mode, brush, erase) {
+  const reflectPoint = (cx, cy, line) => {
+    if (!line) return null;
+    const [x1, y1] = line[0];
+    const [x2, y2] = line[1];
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (dx === 0 && dy === 0) return null;
+    const t = ((cx - x1) * dx + (cy - y1) * dy) / (dx * dx + dy * dy);
+    const projX = x1 + dx * t;
+    const projY = y1 + dy * t;
+    return [Math.round(2 * projX - cx), Math.round(2 * projY - cy)];
+  };
+
+  const getMirrorPoints = (cx, cy) => {
+    if (mirrorLines.length === 0) {
+      return [[cx, cy]];
+    }
+
+    const points = [[cx, cy]];
+    for (const line of mirrorLines) {
+      const nextPoints = [];
+      for (const [px, py] of points) {
+        const mirrored = reflectPoint(px, py, line);
+        if (mirrored) {
+          const key = `${mirrored[0]},${mirrored[1]}`;
+          const alreadyExists = points.some(([x, y]) => `${x},${y}` === key);
+          if (!alreadyExists) {
+            nextPoints.push(mirrored);
+          }
+        }
+      }
+      for (const point of nextPoints) {
+        points.push(point);
+      }
+    }
+    return points;
+  };
+
+  const applyCell = (cx, cy) => {
+    const cell = key(cx, cy);
+    if (erase) {
+      if (grid.has(cell)) {
+        eraseCellCount++;
+      }
+      grid.delete(cell);
+      cellAges.delete(cell);
+      return;
+    }
+
+    if (wallRegions.has(cell)) {
+      return; // Cannot draw into wall cells
+    }
+
+    if (!grid.has(cell)) {
+      drawCellCount++;
+    }
+    grid.add(cell);
+    if (!cellAges.has(cell)) cellAges.set(cell, 0);
+  };
+
+  const paintWithMirror = (cx, cy) => {
+    const points = getMirrorPoints(cx, cy);
+    for (const [px, py] of points) {
+      applyCell(px, py);
+    }
+  };
+
+  if (mode === "chaos") {
+  let density = parseInt(document.getElementById("chaosDensity").value) / 100;
+  for (let dx = -brush + 1; dx < brush; dx++) {
+    for (let dy = -brush + 1; dy < brush; dy++) {
+      if (Math.random() < density) { 
+        paintWithMirror(x + dx, y + dy);
+      }
+    }
+  }
+  return;
+}
+
+  if (mode !== "draw" && mode !== "chaos" && !patterns[mode]) {
+  log("Invalid pattern: " + mode, "error");
+  return;
+}
+
+  if (mode !== "draw" && mode !== "chaos" && patterns[mode]) {
+  let rotated = transformPattern(patterns[mode], patternRotation, patternMirror);
+  let {centerX, centerY} = getPatternAnchor(rotated);
+
+  for (let [dx, dy] of rotated) {
+    paintWithMirror(x + dx - centerX, y + dy - centerY);
+  }
+  return;
+}
+
+  for (let dx = -brush + 1; dx < brush; dx++) {
+    for (let dy = -brush + 1; dy < brush; dy++) {
+      paintWithMirror(x + dx, y + dy);
+    }
+  }
+}
+
+
+function place(e){
+  let brush=parseInt(document.getElementById("brushSize").value);
+  let mode=document.getElementById("patternSelect").value;
+  let erase = eraseMode;
+
+  let x=Math.floor((e.clientX-offsetX)/cellSize);
+  let y=Math.floor((e.clientY-offsetY)/cellSize);
+
+  let lineStart = lastDrawCoords || [x,y];
+  let dx = x - lineStart[0];
+  let dy = y - lineStart[1];
+
+  if(e.shiftKey){
+    if(orthoAxis === null){
+      if(Math.abs(dx) > Math.abs(dy)){
+        orthoAxis = 'x';
+      } else if(Math.abs(dy) > Math.abs(dx)){
+        orthoAxis = 'y';
+      }
+    }
+
+    if(orthoAxis === 'x'){
+      y = lineStart[1];
+      dy = 0;
+    } else if(orthoAxis === 'y'){
+      x = lineStart[0];
+      dx = 0;
+    }
+  } else {
+    orthoAxis = null;
+  }
+
+  let steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+
+  for(let i=0;i<=steps;i++){
+    let tx = lineStart[0] + Math.round(dx * i / steps);
+    let ty = lineStart[1] + Math.round(dy * i / steps);
+    let k = key(tx,ty);
+
+  if(k === lastDrawnCell) continue;
+    lastDrawnCell = k;
+
+    paintCell(tx, ty, mode, brush, erase);
+  }
+
+  lastDrawCoords = [x, y];
+}
+
+// Zoom
+canvas.addEventListener("wheel",e=>{
+  let z=e.deltaY<0?1.1:0.9;
+  let mx=e.clientX,my=e.clientY;
+
+  offsetX=mx-(mx-offsetX)*z;
+  offsetY=my-(my-offsetY)*z;
+
+  cellSize*=z;
+});
+
+// Resize
+window.addEventListener("resize",()=>{
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+});
+
+// initialize rule boxes
+renderRuleBoxes();
+
+function loadPatternsFromRLE() {
+  const raw = window.PATTERN_DATA;
+  const select = document.getElementById("patternSelect");
+
+  for (let name in raw) {
+    const rle = raw[name].replace(/\s/g, "");
+    const cells = parseRLE(rle);
+
+    patterns[name] = cells;
+
+    let opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  }
+}
+
+if (!window.PATTERN_DATA) {
+  console.error("PATTERN_DATA failed to load!");
+}
+
+window.addEventListener("load", () => {
+  if (window.PATTERN_DATA) {
+    loadPatternsFromRLE();
+  }
+
+  loadPatternFromURL();
+});
+
+// Terminal command system variables
+const termInput = document.getElementById("terminalInput");
+
+let commandHistory = []; // History of entered commands
+let historyIndex = -1; // Current position in command history
+
+// Handle terminal input key events
+termInput.addEventListener("keydown", e => {
+
+  // ENTER → run command
+  if (e.key === "Enter") {
+    const cmd = termInput.value.trim();
+    if (!cmd) return;
+
+    commandHistory.push(cmd);
+    historyIndex = commandHistory.length;
+
+    termInput.value = "";
+
+    log("> " + cmd);
+    runCommand(cmd);
+  }
+
+  // ↑ history
+  if (e.key === "ArrowUp") {
+    if (historyIndex > 0) {
+      historyIndex--;
+      termInput.value = commandHistory[historyIndex];
+    }
+  }
+
+  // ↓ history
+  if (e.key === "ArrowDown") {
+    if (historyIndex < commandHistory.length - 1) {
+      historyIndex++;
+      termInput.value = commandHistory[historyIndex];
+    } else {
+      termInput.value = "";
+    }
+  }
+});
+
+// Press '/' to focus the terminal input (quick command entry)
+window.addEventListener('keydown', e => {
+  const tag = document.activeElement && document.activeElement.tagName ? document.activeElement.tagName.toLowerCase() : null;
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return; // don't steal typing
+  if (e.key === '/') {
+    e.preventDefault();
+    const t = document.getElementById('terminalInput');
+    if (t) {
+      t.focus();
+      t.select();
+    }
+  }
+});
+
+// Smart shortcuts dropdown positioning: expand to the right if not enough vertical space
+(() => {
+  const DROPDOWN_SELECTOR = '.shortcut-dropdown';
+  const CONTENT_SELECTOR = '.shortcut-content';
+
+  function resetContentStyles(content) {
+    content.style.display = '';
+    content.style.left = '';
+    content.style.right = '';
+    content.style.top = '';
+    content.style.bottom = '';
+    content.style.maxHeight = '';
+    content.style.overflowY = '';
+  }
+
+  document.querySelectorAll(DROPDOWN_SELECTOR).forEach(dd => {
+    const content = dd.querySelector(CONTENT_SELECTOR);
+    if (!content) return;
+
+    let enterHandler = () => {
+      // Temporarily show to measure size
+      content.style.display = 'block';
+      content.style.maxHeight = '';
+      content.style.overflowY = '';
+
+      const ddRect = dd.getBoundingClientRect();
+      const contentHeight = content.offsetHeight;
+      const spaceBelow = window.innerHeight - ddRect.bottom - 10;
+      const spaceAbove = ddRect.top - 10;
+
+      // If content won't fit below and there's more horizontal room than vertical,
+      // position it to the right of the dropdown (grow horizontally)
+      if (contentHeight > spaceBelow && (window.innerWidth - ddRect.right) > Math.min(spaceBelow, spaceAbove)) {
+        content.style.left = '100%';
+        content.style.top = '0';
+        content.style.right = 'auto';
+        content.style.bottom = 'auto';
+        content.style.maxHeight = (window.innerHeight - 20) + 'px';
+        content.style.overflowY = 'auto';
+      } else if (contentHeight > spaceBelow && spaceAbove > spaceBelow) {
+        // Prefer showing above if there's more room above
+        content.style.top = 'auto';
+        content.style.bottom = '100%';
+        content.style.left = '0';
+        content.style.maxHeight = (spaceAbove - 10) + 'px';
+        content.style.overflowY = 'auto';
+      } else {
+        // Default: show below
+        content.style.left = '0';
+        content.style.top = '100%';
+        content.style.maxHeight = Math.max(0, spaceBelow) + 'px';
+        if (contentHeight > spaceBelow) content.style.overflowY = 'auto';
+      }
+    };
+
+    let leaveHandler = () => resetContentStyles(content);
+
+    dd.addEventListener('mouseenter', enterHandler);
+    dd.addEventListener('mouseleave', leaveHandler);
+    window.addEventListener('resize', () => resetContentStyles(content));
+  });
+})();
+
+function runCommand(cmd) {
+  const args = cmd.trim().split(/\s+/);
+  const base = args[0].toLowerCase();
+
+  switch (base) {
+
+    case "clear":
+      document.getElementById("terminal").innerHTML = "";
+      break;
+
+    case "play":
+      running = true;
+      updateButton();
+      log("Running");
+      break;
+
+    case "pause":
+      running = false;
+      updateButton();
+      log("Paused");
+      break;
+
+    case "step":
+      step();
+      log("Stepped 1 generation");
+      break;
+
+    case "ff":
+      if (args[1] && !isNaN(args[1])) {
+        const steps = parseInt(args[1]);
+        for (let i = 0; i < steps; i++) {
+          step();
+        }
+        log(`Fast forwarded ${steps} generations`);
+      } else {
+        log("Usage: ff <number>");
+      }
+      break;
+
+    case "speed":
+      if (args[1]) {
+        const v = parseInt(args[1], 10);
+        if (!isNaN(v) && v > 0) {
+          const speedInput = document.getElementById("speed");
+          if (speedInput) {
+            const curMax = parseInt(speedInput.max || 0, 10) || 0;
+            if (v > curMax) speedInput.max = String(v);
+            speedInput.value = v;
+            speedInput.dispatchEvent(new Event("input"));
+          }
+          const expanded = document.getElementById("expandedGraphSpeed");
+          if (expanded) {
+            const expMax = parseInt(expanded.max || 0, 10) || 0;
+            if (v > expMax) expanded.max = String(v);
+            expanded.value = v;
+          }
+          log("Speed = " + v);
+        } else {
+          log("Usage: speed <number>");
+        }
+      } else {
+        log("Usage: speed <number>");
+      }
+      break;
+
+    case "brush":
+      if (args[1]) {
+        const v = parseInt(args[1], 10);
+        if (!isNaN(v) && v > 0) {
+          const brushInput = document.getElementById("brushSize");
+          if (brushInput) {
+            const curMax = parseInt(brushInput.max || 0, 10) || 0;
+            if (v > curMax) brushInput.max = String(v);
+            brushInput.value = v;
+            brushInput.dispatchEvent(new Event("input"));
+          }
+          log("Brush = " + v);
+        } else {
+          log("Usage: brush <number>");
+        }
+      } else {
+        log("Usage: brush <number>");
+      }
+      break;
+
+    case "rule":
+      if (args[1]) {
+        applyRuleString(args[1]);
+      }
+      break;
+
+    case "load":
+      if (args[1]) {
+        loadPatternFromFile(args[1]);
+      } else {
+        log("Usage: load <filename.rle>");
+      }
+      break;
+
+    case "stats":
+      log(`Gen: ${generation} | Cells: ${formatLivingCount(grid.size)}`);
+      break;
+
+    case "help":
+      log("Commands:");
+      log("play, pause, step, ff <steps>");
+      log("speed X, brush X");
+      log("rule B3/S23");
+      log("load filename.rle");
+      log("stats, clear");
+      break;
+
+    default:
+      log("Unknown command");
+  }
+}
+  
+</script>
 
 </body>
 </html>

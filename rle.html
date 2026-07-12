@@ -87,7 +87,7 @@
 <header>
   <h3>RLE Viewer</h3>
   <div>
-    <button onclick="window.location.href='index.html'">Back to Library</button>
+    <button onclick="window.location.href='library.html'">Back to Library</button>
   </div>
 </header>
 <div class="container">
@@ -121,8 +121,23 @@
   <div class="note">If the pattern is custom, this page generates RLE from the saved cell data.</div>
 </div>
 <script>
+function readStoredArray(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn(`Failed to read ${key} from localStorage`, error);
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+    return [];
+  }
+}
+
 function getCustomPatterns() {
-  return JSON.parse(localStorage.getItem('customPatterns') || '[]');
+  return readStoredArray('customPatterns');
 }
 function getQueryParam(name) {
   return new URLSearchParams(window.location.search).get(name);

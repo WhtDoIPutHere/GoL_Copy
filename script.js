@@ -7,12 +7,35 @@ const pageSize = 50; // Number of patterns per page
 let sortKey = null; // Current sort column: "Name", "Description", "Rule", "Cells", "BBox"
 let sortDir = 0; // Sort direction: 0 = no sort, 1 = ascending, -1 = descending
 
+function readStoredArray(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn(`Failed to read ${key} from localStorage`, error);
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+    return [];
+  }
+}
+
+function writeStoredArray(key, list) {
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+  } catch (error) {
+    console.warn(`Failed to write ${key} to localStorage`, error);
+  }
+}
+
 function getCustomPatterns() {
-  return JSON.parse(localStorage.getItem("customPatterns") || "[]");
+  return readStoredArray("customPatterns");
 }
 
 function saveCustomPatterns(list) {
-  localStorage.setItem("customPatterns", JSON.stringify(list));
+  writeStoredArray("customPatterns", list);
 }
 
 function addCustomPattern(pattern) {
@@ -27,22 +50,22 @@ function getAllPatterns() {
 
 // Retrieve favorite patterns from localStorage
 function getFavorites() {
-  return JSON.parse(localStorage.getItem("favorites") || "[]");
+  return readStoredArray("favorites");
 }
 
 // Retrieve recently viewed patterns from localStorage
 function getRecent() {
-  return JSON.parse(localStorage.getItem("recent") || "[]");
+  return readStoredArray("recent");
 }
 
 // Save favorite patterns to localStorage
 function saveFavorites(list) {
-  localStorage.setItem("favorites", JSON.stringify(list));
+  writeStoredArray("favorites", list);
 }
 
 // Save recently viewed patterns to localStorage
 function saveRecent(list) {
-  localStorage.setItem("recent", JSON.stringify(list));
+  writeStoredArray("recent", list);
 }
 
 // Check if a pattern file is marked as favorite
@@ -202,7 +225,7 @@ async function render() {
   for (let p of pageItems) {
     const fileId = p["Pattern File"];
     const isCustom = fileId && fileId.startsWith("custom:");
-    const link = isCustom ? `gol.html?custom=${encodeURIComponent(fileId.slice(7))}` : `gol.html?file=${encodeURIComponent(fileId)}`;
+    const link = isCustom ? `index.html?custom=${encodeURIComponent(fileId.slice(7))}` : `index.html?file=${encodeURIComponent(fileId)}`;
 
     const row = document.createElement("tr");
 
