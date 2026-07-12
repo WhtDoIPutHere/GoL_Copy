@@ -303,44 +303,42 @@
   }
 
   #graphCloseBtn {
-    background: #101010;
-    color: #00ff00;
-    border: 1px solid #00ff00;
+    background: #222;
+    color: white;
+    border: 1px solid #333;
     padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   #graphCloseBtn:hover {
-    background: #00ff00;
-    color: #111;
-    box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+    background: #333;
   }
 
   #expandedGraphPlayBtn {
-    border: 1px solid #00ff00;
-    border-radius: 8px;
+    border: 1px solid #333;
+    border-radius: 6px;
     padding: 8px 16px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    background: #101010;
-    color: #00ff00;
+    background: #222;
+    color: white;
     transition: all 0.15s ease;
   }
 
   #expandedGraphPlayBtn.paused {
     background: #aa3333;
-    color: #111;
+    color: white;
     border-color: #aa3333;
   }
 
   #expandedGraphPlayBtn.running {
     background: #33aa33;
-    color: #111;
+    color: white;
     border-color: #33aa33;
   }
 
@@ -1704,6 +1702,10 @@ function step(){
   populationHistory.push(currentPopulation);
   if(populationHistory.length > 2000) populationHistory.shift();
 
+  if (graphModalOpen) {
+    updateExpandedGraphInfo();
+  }
+
   const thresholdInput = document.getElementById("autoPauseStaticThreshold");
   const threshold = thresholdInput && thresholdInput.value ? parseInt(thresholdInput.value, 10) : 10;
   const effectiveThreshold = Number.isInteger(threshold) && threshold > 0 ? threshold : 10;
@@ -1934,10 +1936,11 @@ function getGraphStats() {
 }
 
 function updateExpandedGraphInfo() {
-  const stats = getGraphStats();
-  if (!stats) return;
   const panel = document.getElementById("graphInfoPanel");
   if (!panel) return;
+
+  const stats = getGraphStats();
+  const hasHistory = populationHistory.length > 0;
 
   panel.innerHTML = `
     <div class="graphInfoBlock">
@@ -1949,14 +1952,16 @@ function updateExpandedGraphInfo() {
     </div>
     <div class="graphInfoBlock">
       <h3>Period High / Low</h3>
-      <div class="graphInfoLine"><span class="graphMetricLabel">Latest decade high</span><span><strong>${stats.decade.high}</strong> <span class="graphJumpLink" data-gen="${stats.decade.highIndex}">#${stats.decade.highIndex}</span></span></div>
-      <div class="graphInfoLine"><span class="graphMetricLabel">Latest decade low</span><span><strong>${stats.decade.low}</strong> <span class="graphJumpLink" data-gen="${stats.decade.lowIndex}">#${stats.decade.lowIndex}</span></span></div>
-      <div class="graphInfoLine"><span class="graphMetricLabel">Latest century high</span><span><strong>${stats.century.high}</strong> <span class="graphJumpLink" data-gen="${stats.century.highIndex}">#${stats.century.highIndex}</span></span></div>
-      <div class="graphInfoLine"><span class="graphMetricLabel">Latest century low</span><span><strong>${stats.century.low}</strong> <span class="graphJumpLink" data-gen="${stats.century.lowIndex}">#${stats.century.lowIndex}</span></span></div>
-      <div class="graphInfoLine"><span class="graphMetricLabel">Latest millennium high</span><span><strong>${stats.millenium.high}</strong> <span class="graphJumpLink" data-gen="${stats.millenium.highIndex}">#${stats.millenium.highIndex}</span></span></div>
-      <div class="graphInfoLine"><span class="graphMetricLabel">Latest millennium low</span><span><strong>${stats.millenium.low}</strong> <span class="graphJumpLink" data-gen="${stats.millenium.lowIndex}">#${stats.millenium.lowIndex}</span></span></div>
-      <div class="graphInfoLine"><span class="graphMetricLabel">All time high</span><span><strong>${stats.allTime.high}</strong> <span class="graphJumpLink" data-gen="${stats.allTime.highIndex}">#${stats.allTime.highIndex}</span></span></div>
-      <div class="graphInfoLine"><span class="graphMetricLabel">All time low</span><span><strong>${stats.allTime.low}</strong> <span class="graphJumpLink" data-gen="${stats.allTime.lowIndex}">#${stats.allTime.lowIndex}</span></span></div>
+      ${hasHistory ? `
+        <div class="graphInfoLine"><span class="graphMetricLabel">Latest decade high</span><span><strong>${stats.decade.high}</strong> <span class="graphJumpLink" data-gen="${stats.decade.highIndex}">#${stats.decade.highIndex}</span></span></div>
+        <div class="graphInfoLine"><span class="graphMetricLabel">Latest decade low</span><span><strong>${stats.decade.low}</strong> <span class="graphJumpLink" data-gen="${stats.decade.lowIndex}">#${stats.decade.lowIndex}</span></span></div>
+        <div class="graphInfoLine"><span class="graphMetricLabel">Latest century high</span><span><strong>${stats.century.high}</strong> <span class="graphJumpLink" data-gen="${stats.century.highIndex}">#${stats.century.highIndex}</span></span></div>
+        <div class="graphInfoLine"><span class="graphMetricLabel">Latest century low</span><span><strong>${stats.century.low}</strong> <span class="graphJumpLink" data-gen="${stats.century.lowIndex}">#${stats.century.lowIndex}</span></span></div>
+        <div class="graphInfoLine"><span class="graphMetricLabel">Latest millennium high</span><span><strong>${stats.millenium.high}</strong> <span class="graphJumpLink" data-gen="${stats.millenium.highIndex}">#${stats.millenium.highIndex}</span></span></div>
+        <div class="graphInfoLine"><span class="graphMetricLabel">Latest millennium low</span><span><strong>${stats.millenium.low}</strong> <span class="graphJumpLink" data-gen="${stats.millenium.lowIndex}">#${stats.millenium.lowIndex}</span></span></div>
+        <div class="graphInfoLine"><span class="graphMetricLabel">All time high</span><span><strong>${stats.allTime.high}</strong> <span class="graphJumpLink" data-gen="${stats.allTime.highIndex}">#${stats.allTime.highIndex}</span></span></div>
+        <div class="graphInfoLine"><span class="graphMetricLabel">All time low</span><span><strong>${stats.allTime.low}</strong> <span class="graphJumpLink" data-gen="${stats.allTime.lowIndex}">#${stats.allTime.lowIndex}</span></span></div>
+      ` : `<div class="graphInfoLine"><span class="graphMetricLabel">No history yet</span><strong>—</strong></div>`}
     </div>
   `;
 
@@ -1967,11 +1972,18 @@ function updateExpandedGraphInfo() {
       if (!isNaN(targetGen)) {
         selectedGraphGeneration = targetGen;
         scrollExpandedGraphToGeneration(targetGen);
-        const expandedCanvas = document.getElementById('expandedGraphCanvas');
-        drawExpandedPopulationGraph(expandedCanvas, expandedCanvas.getContext('2d'));
+        redrawExpandedGraph();
+        updateExpandedGraphInfo();
       }
     });
   });
+}
+
+function redrawExpandedGraph() {
+  const expandedCanvas = document.getElementById('expandedGraphCanvas');
+  if (!expandedCanvas) return;
+  const ctx = expandedCanvas.getContext('2d');
+  drawExpandedPopulationGraph(expandedCanvas, ctx);
 }
 
 function scrollExpandedGraphToGeneration(gen) {
@@ -1980,10 +1992,12 @@ function scrollExpandedGraphToGeneration(gen) {
   if (!wrapper || !expandedCanvas || populationHistory.length < 2) return;
   const leftMargin = 50;
   const rightMargin = 20;
-  const effectiveWidth = expandedCanvas.width - leftMargin - rightMargin;
+  const effectiveWidth = Math.max(0, expandedCanvas.width - leftMargin - rightMargin);
   const stepX = populationHistory.length > 1 ? effectiveWidth / (populationHistory.length - 1) : 0;
-  const x = leftMargin + gen * stepX;
-  wrapper.scrollLeft = Math.max(0, x - wrapper.clientWidth / 2);
+  const clampedGen = Math.max(0, Math.min(gen, populationHistory.length - 1));
+  const x = leftMargin + clampedGen * stepX;
+  const targetScroll = Math.max(0, Math.min(x - wrapper.clientWidth / 2, expandedCanvas.width - wrapper.clientWidth));
+  wrapper.scrollLeft = targetScroll;
 }
 
 // Open graph modal
@@ -2022,8 +2036,7 @@ function openGraphModal() {
     updateExpandedGraphControls();
   }
 
-  const ctx = expandedCanvas.getContext("2d");
-  drawExpandedPopulationGraph(expandedCanvas, ctx);
+  redrawExpandedGraph();
   updateExpandedGraphInfo();
 }
 
@@ -2083,9 +2096,7 @@ document.addEventListener("DOMContentLoaded", function() {
       expandedCanvas.width = Math.max(container.clientWidth - 40, populationHistory.length * 12 + 140);
       expandedCanvas.height = Math.max(container.clientHeight - 190, 280);
       wrapper.scrollLeft = Math.max(0, expandedCanvas.width - wrapper.clientWidth);
-      const ctx = expandedCanvas.getContext("2d");
-      drawExpandedPopulationGraph(expandedCanvas, ctx);
-      updateExpandedGraphInfo();
+      redrawExpandedGraph();
     }
   });
 });
@@ -2123,9 +2134,7 @@ function loop(t){
   if (graphModalOpen) {
     const expandedCanvas = document.getElementById("expandedGraphCanvas");
     if (expandedCanvas && expandedCanvas.width > 0) {
-      const ctx = expandedCanvas.getContext("2d");
-      drawExpandedPopulationGraph(expandedCanvas, ctx);
-      updateExpandedGraphInfo();
+      redrawExpandedGraph();
     }
   }
 }
@@ -2392,18 +2401,31 @@ function clearGrid(){
   generation = 0;
   running = false;
   staticGenerationCount = 0;
+  samePopulationCount = 0;
   populationHistory = [];
   cellAges.clear();
   wallRegions.clear();
+  selectedGraphGeneration = null;
   updateButton();
   updateStats();
+  updateGraphStats();
   
   document.getElementById("statPeak").textContent = "0";
-document.getElementById("statLow").textContent = "0";
-document.getElementById("statAvg").textContent = "0";
-document.getElementById("statSlope").textContent = "0";
-document.getElementById("statTrend").textContent = "-";
-document.getElementById("statStability").textContent = "-";
+  document.getElementById("statLow").textContent = "0";
+  document.getElementById("statAvg").textContent = "0";
+  document.getElementById("statSlope").textContent = "0";
+  document.getElementById("statTrend").textContent = "-";
+  document.getElementById("statStability").textContent = "-";
+  updateExpandedGraphInfo();
+
+  if (graphModalOpen) {
+    const expandedCanvas = document.getElementById("expandedGraphCanvas");
+    if (expandedCanvas) {
+      const ctx = expandedCanvas.getContext("2d");
+      drawExpandedPopulationGraph(expandedCanvas, ctx);
+    }
+    updateExpandedGraphInfo();
+  }
 
   log("Grid cleared", "action");
 }
