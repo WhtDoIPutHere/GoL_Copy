@@ -148,28 +148,28 @@
     width: 260px;
   }
 
-  #clipboardMenu {
+  #clipboardMenu, #stateMenu {
     display: none;
     position: fixed;
     background: rgba(0,0,0,0.9);
     padding: 10px;
     border-radius: 8px;
     z-index: 1001;
-    max-height: 280px;
+    max-height: 320px;
     overflow-y: auto;
     border: 1px solid #555;
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
     font-size: 12px;
   }
 
-  #clipboardMenu > div:first-child {
+  #clipboardMenu > div:first-child, #stateMenu > div:first-child {
     color: lime;
     font-weight: bold;
     margin-bottom: 6px;
     font-size: 13px;
   }
 
-  #clipboardMenu .clipboard-item {
+  #clipboardMenu .clipboard-item, #stateMenu .clipboard-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -183,7 +183,7 @@
     transition: background 0.15s;
   }
 
-  #clipboardMenu .clipboard-item:hover {
+  #clipboardMenu .clipboard-item:hover, #stateMenu .clipboard-item:hover {
     background: rgba(255,255,255,0.1);
     border-color: #555;
   }
@@ -234,7 +234,7 @@
     color: #fff;
   }
 
-  #clipboardMenu .clipboard-clear {
+  #clipboardMenu .clipboard-clear, #stateMenu .clipboard-clear {
     margin-top: 8px;
     width: 100%;
     padding: 4px 6px;
@@ -246,7 +246,7 @@
     font-size: 11px;
   }
 
-  #clipboardMenu .clipboard-clear:hover {
+  #clipboardMenu .clipboard-clear:hover, #stateMenu .clipboard-clear:hover {
     background: #3a3a3a;
   }
 
@@ -639,6 +639,8 @@
     
     <button onclick="saveGridToLibrary()" style="background: #33aa33;">Save Grid</button>
     <button onclick="saveSelectionToLibrary()" style="background: #33aa33;">Save Selection</button>
+    <button onclick="saveBoardStateToStorage()" style="background: #3366cc;">Save State</button>
+    <button onclick="loadBoardStateFromStorage()" style="background: #3366cc;">Load State</button>
     <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
     <button onclick="window.open('https://copy.sh/life/examples/','_blank')" style="background: #445;">RLE Library</button>
     <button onclick="window.open('library.html','_blank')" style="background:#445;">Pattern Database</button>
@@ -654,6 +656,11 @@
       <div>Clipboard</div>
       <div id="clipboardItems" style="display:flex; flex-direction:column;"></div>
       <div id="clipboardEmpty" style="color:#aaa; font-size:12px;">No copied items yet.</div>
+    </div>
+    <div id="stateMenu">
+      <div>Saved States</div>
+      <div id="stateItems" style="display:flex; flex-direction:column;"></div>
+      <div id="stateEmpty" style="color:#aaa; font-size:12px;">No saved states yet.</div>
     </div>
 <div style="display:flex; align-items:center; gap:6px; position:relative;">
   <textarea id="rleInput"
@@ -892,6 +899,7 @@ let selectionEnd = null; // Selection end coordinates
 let selectionRect = null; // Completed selection rectangle
 let selectedCells = new Set(); // Current selected cell keys
 let clipboardHistory = []; // Last copied/cut shapes
+let savedBoardStates = getSavedBoardStateEntries(); // Saved board states for later loading
 
 let wallRegions = new Set(); // Set of wall cell coordinates as strings "x,y"
 
@@ -1127,6 +1135,254 @@ function createSnapshot() {
     generation: generation,
     populationHistory: [...populationHistory]
   };
+}
+
+function serializeBoardState() {
+  return {
+    version: 1,
+    grid: Array.from(grid),
+    wallRegions: Array.from(wallRegions),
+    cellAges: Array.from(cellAges.entries()),
+    generation,
+    populationHistory: [...populationHistory],
+    cellSize,
+    offsetX,
+    offsetY,
+    running,
+    showGrid,
+    fullCellMode,
+    eraseMode,
+    colorMode,
+    heatmapMode,
+    ghostMode,
+    patternRotation,
+    patternMirror,
+    graphGenerationScale,
+    livingCountDisplay,
+    birthSet: Array.from(birthSet),
+    survivalSet: Array.from(survivalSet)
+  };
+}
+
+function getSavedBoardStateEntries() {
+  try {
+    const raw = localStorage.getItem("gol-board-states");
+    if (!raw) {
+      const legacy = localStorage.getItem("gol-board-state");
+      if (!legacy) return [];
+      const parsed = JSON.parse(legacy);
+      return [{ id: "legacy-state", name: "Saved State", state: parsed }];
+    }
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error("Failed to read saved board states", err);
+    return [];
+  }
+}
+
+function persistSavedBoardStates() {
+  try {
+    localStorage.setItem("gol-board-states", JSON.stringify(savedBoardStates));
+  } catch (err) {
+    console.error("Failed to persist saved board states", err);
+  }
+}
+
+function applyBoardState(state) {
+  if (!state) return false;
+
+  grid = new Set(state.grid || []);
+  wallRegions = new Set(state.wallRegions || []);
+  cellAges = new Map(state.cellAges || []);
+  generation = Number(state.generation) || 0;
+  populationHistory = Array.isArray(state.populationHistory) ? [...state.populationHistory] : [];
+
+  cellSize = Number(state.cellSize) || 20;
+  offsetX = Number(state.offsetX) || 0;
+  offsetY = Number(state.offsetY) || 0;
+
+  showGrid = Boolean(state.showGrid);
+  fullCellMode = Boolean(state.fullCellMode);
+  eraseMode = Boolean(state.eraseMode);
+  colorMode = Boolean(state.colorMode);
+  heatmapMode = Boolean(state.heatmapMode);
+  ghostMode = Boolean(state.ghostMode);
+  patternRotation = Number(state.patternRotation) || 0;
+  patternMirror = Number(state.patternMirror) || 0;
+  graphGenerationScale = state.graphGenerationScale || "default";
+  livingCountDisplay = state.livingCountDisplay || "default";
+  birthSet = new Set(state.birthSet || []);
+  survivalSet = new Set(state.survivalSet || []);
+
+  selectionRect = null;
+  selectedCells = new Set();
+  undoStack = [];
+  redoStack = [];
+  running = Boolean(state.running);
+
+  updateButton();
+  updateGridButton();
+  updateFullCellButton();
+  updateEraseButton();
+  updateColorButton();
+  updateHeatmapButton();
+  updateStats();
+  updateGraphStats();
+  renderRuleBoxes();
+  updateRuleString();
+
+  const generationScaleSelect = document.getElementById("graphGenerationScaleSelect");
+  if (generationScaleSelect) generationScaleSelect.value = graphGenerationScale;
+  const livingCountSelect = document.getElementById("livingCountDisplaySelect");
+  if (livingCountSelect) livingCountSelect.value = livingCountDisplay;
+
+  if (graphModalOpen) {
+    redrawExpandedGraph();
+    updateExpandedGraphInfo();
+  }
+
+  return true;
+}
+
+function saveBoardStateToStorage() {
+  try {
+    const defaultName = `State ${savedBoardStates.length + 1}`;
+    const enteredName = prompt("Name for saved state:", defaultName);
+    const name = (enteredName !== null && enteredName.trim()) ? enteredName.trim() : defaultName;
+    const state = serializeBoardState();
+    savedBoardStates.unshift({ id: `state-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, state });
+    if (savedBoardStates.length > 20) savedBoardStates.pop();
+    persistSavedBoardStates();
+    updateStateMenu();
+    log(`Board state saved: ${name}`, "action");
+  } catch (err) {
+    console.error("Failed to save board state", err);
+    log("Could not save board state", "error");
+  }
+}
+
+function updateStateMenu() {
+  const menu = document.getElementById("stateMenu");
+  const items = document.getElementById("stateItems");
+  const empty = document.getElementById("stateEmpty");
+
+  if (!menu || !items || !empty) return;
+
+  items.innerHTML = "";
+  if (savedBoardStates.length === 0) {
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  savedBoardStates.forEach((entry) => {
+    const item = document.createElement("div");
+    item.className = "clipboard-item";
+
+    const row = document.createElement("div");
+    row.className = "clipboard-item-row";
+
+    const main = document.createElement("div");
+    main.className = "clipboard-item-main";
+    main.innerHTML = `<span class="clipboard-number">${entry.name}</span>`;
+    main.onclick = () => {
+      if (applyBoardState(entry.state)) {
+        log(`Loaded saved state: ${entry.name}`, "action");
+      }
+      closeStateMenu();
+    };
+
+    const actions = document.createElement("div");
+    actions.className = "clipboard-actions";
+
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "clipboard-action-btn";
+    renameBtn.textContent = "✎";
+    renameBtn.title = "Rename";
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt("Rename saved state:", entry.name);
+      if (newName !== null && newName.trim() !== "") {
+        entry.name = newName.trim();
+        persistSavedBoardStates();
+        updateStateMenu();
+      }
+    };
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "clipboard-action-btn";
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "Delete";
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      savedBoardStates = savedBoardStates.filter((stateEntry) => stateEntry.id !== entry.id);
+      persistSavedBoardStates();
+      updateStateMenu();
+    };
+
+    actions.appendChild(renameBtn);
+    actions.appendChild(deleteBtn);
+    row.appendChild(main);
+    row.appendChild(actions);
+    item.appendChild(row);
+    items.appendChild(item);
+  });
+
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "clipboard-clear";
+  clearBtn.textContent = "Clear Saved States";
+  clearBtn.onclick = (e) => {
+    e.stopPropagation();
+    savedBoardStates = [];
+    persistSavedBoardStates();
+    updateStateMenu();
+  };
+  items.appendChild(clearBtn);
+}
+
+function openStateMenu() {
+  updateStateMenu();
+  const menu = document.getElementById("stateMenu");
+  if (!menu) return;
+  menu.style.display = savedBoardStates.length ? "block" : "none";
+  if (savedBoardStates.length) {
+    menu.style.left = mouseX + "px";
+    menu.style.top = mouseY + "px";
+  }
+}
+
+function closeStateMenu() {
+  const menu = document.getElementById("stateMenu");
+  if (menu) menu.style.display = "none";
+}
+
+function loadBoardStateFromStorage(entryId = null) {
+  if (entryId) {
+    const entry = savedBoardStates.find((stateEntry) => stateEntry.id === entryId);
+    if (!entry) return false;
+    if (applyBoardState(entry.state)) {
+      log(`Loaded saved state: ${entry.name}`, "action");
+      return true;
+    }
+    return false;
+  }
+
+  if (savedBoardStates.length === 0) {
+    const legacyStates = getSavedBoardStateEntries();
+    if (legacyStates.length) {
+      savedBoardStates = legacyStates;
+      persistSavedBoardStates();
+    }
+  }
+
+  if (savedBoardStates.length === 0) {
+    log("No saved states found", "warn");
+    return false;
+  }
+
+  openStateMenu();
+  return true;
 }
 
 // Restore the game state from a snapshot
