@@ -73,26 +73,6 @@
     top: 100%;
     left: 0;
   }
-  .help-dropdown {
-    position: relative;
-    display: inline-block;
-  }
-  .help-content {
-    display: none;
-    position: absolute;
-    background-color: rgba(0, 0, 0, 0.9);
-    min-width: 260px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
-    z-index: 1000;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #555;
-    top: 100%;
-    left: 0;
-    color: #ddd;
-    font-size: 12px;
-    line-height: 1.4;
-  }
   .settings-dropdown {
     position: relative;
     display: inline-block;
@@ -129,9 +109,6 @@
   }
   /* Show dropdown on hover */
   .shortcut-dropdown:hover .shortcut-content {
-    display: block;
-  }
-  .help-dropdown:hover .help-content {
     display: block;
   }
   /* Individual shortcut item layout */
@@ -660,34 +637,10 @@
       </div>
     </div>
     
-    <div class="help-dropdown">
-      <button onclick="saveGridToLibrary()" style="background: #33aa33;">Save Grid</button>
-      <div class="help-content">
-        <div style="font-weight: bold; color: lime; margin-bottom: 6px;">Save Grid</div>
-        Stores the currently drawn live-cell pattern in your personal library for later reuse.
-      </div>
-    </div>
-    <div class="help-dropdown">
-      <button onclick="saveSelectionToLibrary()" style="background: #33aa33;">Save Selection</button>
-      <div class="help-content">
-        <div style="font-weight: bold; color: lime; margin-bottom: 6px;">Save Selection</div>
-        Saves the active selection area as a named reusable pattern in the library.
-      </div>
-    </div>
-    <div class="help-dropdown">
-      <button onclick="saveBoardStateToStorage()" style="background: #3366cc;">Save State</button>
-      <div class="help-content">
-        <div style="font-weight: bold; color: lime; margin-bottom: 6px;">Save State</div>
-        Stores the current board, view, and wall setup so it can be restored later.
-      </div>
-    </div>
-    <div class="help-dropdown">
-      <button onclick="loadBoardStateFromStorage()" style="background: #3366cc;">Load State</button>
-      <div class="help-content">
-        <div style="font-weight: bold; color: lime; margin-bottom: 6px;">Load State</div>
-        Opens the saved-state list and restores a previously stored board snapshot.
-      </div>
-    </div>
+    <button onclick="saveGridToLibrary()" style="background: #33aa33;">Save Grid</button>
+    <button onclick="saveSelectionToLibrary()" style="background: #33aa33;">Save Selection</button>
+    <button onclick="saveBoardStateToStorage()" style="background: #3366cc;">Save State</button>
+    <button onclick="loadBoardStateFromStorage()" style="background: #3366cc;">Load State</button>
     <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
     <button onclick="window.open('https://copy.sh/life/examples/','_blank')" style="background: #445;">RLE Library</button>
     <button onclick="window.open('library.html','_blank')" style="background:#445;">Pattern Database</button>
