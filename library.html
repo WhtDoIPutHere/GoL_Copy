@@ -185,7 +185,8 @@
   #tab-all.active,
   #tab-recent.active,
   #tab-favorites.active,
-  #tab-custom.active {
+  #tab-custom.active,
+  #tab-color-presets.active {
     background: #555;
   }
 
@@ -200,6 +201,7 @@
   <button onclick="setTab('recent')" id="tab-recent">Recent</button>
   <button onclick="setTab('favorites')" id="tab-favorites">Favorites</button>
   <button onclick="setTab('custom')" id="tab-custom">Custom</button>
+  <button onclick="setTab('color-presets')" id="tab-color-presets">Color Presets</button>
   <button onclick="window.location.href='index.html'">Go to Game of Life</button>
 </header>
 
@@ -215,6 +217,7 @@
         <th onclick="sortBy('Rule')" id="h-Rule">Rule</th>
         <th onclick="sortBy('Cells')" id="h-Cells">Cells</th>
         <th onclick="sortBy('BBox')" id="h-BBox">Bounding Box</th>
+        <th>Load</th>
       </tr>
     </thead>
     <tbody id="tableBody"></tbody>

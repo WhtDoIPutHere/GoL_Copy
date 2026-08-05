@@ -1,11 +1,20 @@
 // Global variables for managing the pattern library state
-let currentTab = "all"; // Current active tab: "all", "favorites", "recent", or "custom"
+let currentTab = "all"; // Current active tab: "all", "favorites", "recent", "custom", or "color-presets"
 let patterns = []; // Array of all loaded patterns
 let filtered = []; // Filtered patterns based on search and tab
 let currentPage = 1; // Current page for pagination
 const pageSize = 50; // Number of patterns per page
 let sortKey = null; // Current sort column: "Name", "Description", "Rule", "Cells", "BBox"
 let sortDir = 0; // Sort direction: 0 = no sort, 1 = ascending, -1 = descending
+const HEATMAP_PRESET_STORAGE_KEY = "heatmapColorPresets";
+const DEFAULT_HEATMAP_PRESET = {
+  id: "default-heatmap-preset",
+  name: "Default Heatmap",
+  description: "Current default heatmap gradient and aging speed.",
+  startColor: "#3cb4dc",
+  endColor: "#f02846",
+  duration: 20
+};
 
 function readStoredArray(key) {
   try {
@@ -32,6 +41,53 @@ function writeStoredArray(key, list) {
 
 function getCustomPatterns() {
   return readStoredArray("customPatterns");
+}
+
+function getHeatmapColorPresets() {
+  return readStoredArray(HEATMAP_PRESET_STORAGE_KEY);
+}
+
+function saveHeatmapColorPresets(list) {
+  writeStoredArray(HEATMAP_PRESET_STORAGE_KEY, list);
+}
+
+function ensureDefaultHeatmapPreset() {
+  const list = getHeatmapColorPresets();
+  if (list.length === 0) {
+    saveHeatmapColorPresets([DEFAULT_HEATMAP_PRESET]);
+  }
+}
+
+function saveCurrentHeatmapPreset(name, startColor, endColor, duration) {
+  const cleanName = (name || "Preset").trim() || "Preset";
+  const preset = {
+    id: `heatmap-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: cleanName,
+    description: `${startColor} → ${endColor} over ${duration} generations`,
+    startColor: String(startColor || DEFAULT_HEATMAP_PRESET.startColor),
+    endColor: String(endColor || DEFAULT_HEATMAP_PRESET.endColor),
+    duration: Number(duration) || DEFAULT_HEATMAP_PRESET.duration
+  };
+
+  const list = getHeatmapColorPresets();
+  list.unshift(preset);
+  saveHeatmapColorPresets(list);
+  return preset;
+}
+
+function loadHeatmapPresetFromLibrary(preset) {
+  const safePreset = preset || DEFAULT_HEATMAP_PRESET;
+  if (window.opener && typeof window.opener.loadHeatmapPresetFromLibrary === "function") {
+    window.opener.loadHeatmapPresetFromLibrary(safePreset);
+    return;
+  }
+
+  try {
+    localStorage.setItem("pendingHeatmapPreset", JSON.stringify(safePreset));
+  } catch (err) {
+    console.warn("Failed to persist pending preset", err);
+  }
+  window.location.href = "index.html";
 }
 
 function saveCustomPatterns(list) {
@@ -102,7 +158,7 @@ function setTab(tab) {
   currentPage = 1;
   applyFilter();
 
-  const tabs = ["tab-all", "tab-recent", "tab-favorites", "tab-custom"];
+  const tabs = ["tab-all", "tab-recent", "tab-favorites", "tab-custom", "tab-color-presets"];
   for (const id of tabs) {
     const btn = document.getElementById(id);
     if (btn) btn.classList.toggle("active", id === `tab-${tab}`);
@@ -110,6 +166,7 @@ function setTab(tab) {
 }
 
 // Load patterns from JSON and initialize the app
+ensureDefaultHeatmapPreset();
 fetch("patterns.json")
   .then(res => res.json())
   .then(data => {
@@ -136,11 +193,13 @@ function applyFilter() {
   } else if (currentTab === "recent") {
     const rec = getRecent();
     base = rec.map(id => getAllPatterns().find(p => p["Pattern File"] === id)).filter(Boolean);
+  } else if (currentTab === "color-presets") {
+    base = getHeatmapColorPresets();
   }
 
   filtered = base.filter(p =>
-    (p.Name || "").toLowerCase().includes(q) ||
-    (p.Description || "").toLowerCase().includes(q)
+    (p.Name || p.name || "").toLowerCase().includes(q) ||
+    (p.Description || p.description || "").toLowerCase().includes(q)
   );
 
   sortData();
@@ -154,15 +213,28 @@ function sortData() {
   filtered.sort((a, b) => {
     let va, vb;
 
-    if (sortKey === "Cells") {
-      va = +a.Cells || 0;
-      vb = +b.Cells || 0;
-    } else if (sortKey === "BBox") {
-      va = bboxArea(a);
-      vb = bboxArea(b);
+    if (currentTab === "color-presets") {
+      if (sortKey === "Name") {
+        va = (a.name || a.Name || "").toString().toLowerCase();
+        vb = (b.name || b.Name || "").toString().toLowerCase();
+      } else if (sortKey === "Description") {
+        va = (a.description || a.Description || "").toString().toLowerCase();
+        vb = (b.description || b.Description || "").toString().toLowerCase();
+      } else {
+        va = (a[sortKey] || "").toString().toLowerCase();
+        vb = (b[sortKey] || "").toString().toLowerCase();
+      }
     } else {
-      va = (a[sortKey] || "").toString().toLowerCase();
-      vb = (b[sortKey] || "").toString().toLowerCase();
+      if (sortKey === "Cells") {
+        va = +a.Cells || 0;
+        vb = +b.Cells || 0;
+      } else if (sortKey === "BBox") {
+        va = bboxArea(a);
+        vb = bboxArea(b);
+      } else {
+        va = (a[sortKey] || "").toString().toLowerCase();
+        vb = (b[sortKey] || "").toString().toLowerCase();
+      }
     }
 
     if (va < vb) return -1 * sortDir;
@@ -210,6 +282,13 @@ function updateSortIndicators() {
     }
     el.textContent = label;
   }
+
+  if (currentTab === "color-presets") {
+    const nameEl = document.getElementById("h-Name");
+    const descEl = document.getElementById("h-Description");
+    if (nameEl) nameEl.textContent = sortKey === "Name" ? `Name${sortDir === 1 ? " ↑" : sortDir === -1 ? " ↓" : ""}` : "Name";
+    if (descEl) descEl.textContent = sortKey === "Description" ? `Description${sortDir === 1 ? " ↑" : sortDir === -1 ? " ↓" : ""}` : "Description";
+  }
 }
 
 // Render the pattern table with pagination
@@ -221,6 +300,29 @@ async function render() {
 
   const start = (currentPage - 1) * pageSize;
   const pageItems = filtered.slice(start, start + pageSize);
+
+  if (currentTab === "color-presets") {
+    for (let p of pageItems) {
+      const row = document.createElement("tr");
+      const gradient = `linear-gradient(90deg, ${p.startColor || "#9ddc15"}, ${p.endColor || "#ca204d"})`;
+      row.innerHTML = `
+        <td><div style="width:70px;height:50px;border:1px solid #333;background:${gradient};"></div></td>
+        <td></td>
+        <td>${p.name || p.Name || ""}</td>
+        <td class="desc" title="${p.description || p.Description || " "}">${p.description || p.Description || " "}</td>
+        <td><span style="color:#8ecae6;font-family:monospace;">${p.startColor || ""}</span></td>
+        <td><span style="color:#8ecae6;font-family:monospace;">${p.endColor || ""}</span></td>
+        <td class="num">${p.duration || ""}</td>
+        <td><button type="button" class="load-preset-btn">Load</button></td>
+      `;
+      const loadButton = row.querySelector(".load-preset-btn");
+      if (loadButton) {
+        loadButton.addEventListener("click", () => loadHeatmapPresetFromLibrary(p));
+      }
+      body.appendChild(row);
+    }
+    return;
+  }
 
   for (let p of pageItems) {
     const fileId = p["Pattern File"];
@@ -253,6 +355,7 @@ async function render() {
       <td><span class="rule">${p.Rule || ""}</span></td>
       <td class="num">${p.Cells || ""}</td>
       <td><span class="bbox">${p["Bounding Box"] || ""}</span></td>
+      <td></td>
     `;
 
     body.appendChild(row);

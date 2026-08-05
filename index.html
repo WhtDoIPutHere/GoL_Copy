@@ -749,6 +749,23 @@
         </select>
       </label>
       <div class="settings-note">Choose how the living cell count is shown in the status bar and summaries. Scientific notation is rounded to three decimal places.</div>
+      <div style="margin-top:10px; border-top:1px solid #2a2a2a; padding-top:8px; display:flex; flex-direction:column; gap:6px;">
+        <strong style="color:#8ecae6;">Heatmap Color Preset</strong>
+        <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span>Start</span>
+          <input type="color" id="heatmapStartColorInput" value="#3cb4dc" style="width:46px; height:26px; padding:0;">
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span>End</span>
+          <input type="color" id="heatmapEndColorInput" value="#f02846" style="width:46px; height:26px; padding:0;">
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span>Duration</span>
+          <input type="number" id="heatmapDurationInput" min="1" max="200" value="20" style="width:64px; padding:3px; font-size:12px;">
+          <span>generations</span>
+        </label>
+        <button type="button" onclick="saveActiveHeatmapPresetFromUI()" style="align-self:flex-start; background:#3366cc;">Save Preset</button>
+      </div>
     </div>
   </div>
 </div>
@@ -919,6 +936,9 @@ let fullCellMode = false; // Whether cells fill completely or show borders
 let orthoAxis = null; // Axis for orthogonal drawing ("x" or "y")
 let colorMode = false; // Whether to color cells by age
 let heatmapMode = false; // Whether to show population heatmap
+let heatmapStartColor = "#3cb4dc"; // Default heatmap start color
+let heatmapEndColor = "#f02846"; // Default heatmap end color
+let heatmapDuration = 20; // Number of generations for the heatmap ramp to fully transition
 let ghostMode = false; // Whether to show pattern ghost preview
 let populationHistory = []; // History of population counts for graphs
 let cellAges = new Map(); // Map of cell coordinates to their age
@@ -1201,6 +1221,9 @@ function serializeBoardState() {
     eraseMode,
     colorMode,
     heatmapMode,
+    heatmapStartColor,
+    heatmapEndColor,
+    heatmapDuration,
     ghostMode,
     patternRotation,
     patternMirror,
@@ -1253,6 +1276,9 @@ function applyBoardState(state) {
   eraseMode = Boolean(state.eraseMode);
   colorMode = Boolean(state.colorMode);
   heatmapMode = Boolean(state.heatmapMode);
+  heatmapStartColor = state.heatmapStartColor || heatmapStartColor;
+  heatmapEndColor = state.heatmapEndColor || heatmapEndColor;
+  heatmapDuration = Number(state.heatmapDuration) || heatmapDuration;
   ghostMode = Boolean(state.ghostMode);
   patternRotation = Number(state.patternRotation) || 0;
   patternMirror = Number(state.patternMirror) || 0;
@@ -1282,6 +1308,13 @@ function applyBoardState(state) {
   if (generationScaleSelect) generationScaleSelect.value = graphGenerationScale;
   const livingCountSelect = document.getElementById("livingCountDisplaySelect");
   if (livingCountSelect) livingCountSelect.value = livingCountDisplay;
+
+  const heatmapStartInput = document.getElementById("heatmapStartColorInput");
+  const heatmapEndInput = document.getElementById("heatmapEndColorInput");
+  const heatmapDurationInput = document.getElementById("heatmapDurationInput");
+  if (heatmapStartInput) heatmapStartInput.value = heatmapStartColor;
+  if (heatmapEndInput) heatmapEndInput.value = heatmapEndColor;
+  if (heatmapDurationInput) heatmapDurationInput.value = String(heatmapDuration);
 
   if (graphModalOpen) {
     redrawExpandedGraph();
@@ -1477,6 +1510,38 @@ function fitPatternToScreen(pattern){
   offsetY = canvas.height / 2 - centerY * cellSize;
 }
 
+function normalizeHexColor(hex) {
+  const normalized = String(hex || "#000000").trim();
+  if (!normalized.startsWith("#")) return `#${normalized}`;
+  return normalized.length === 4 ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}` : normalized;
+}
+
+function hexToRgb(hex) {
+  const clean = normalizeHexColor(hex).slice(1);
+  const value = parseInt(clean, 16);
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255
+  };
+}
+
+function blendRgbColor(startHex, endHex, t) {
+  const start = hexToRgb(startHex);
+  const end = hexToRgb(endHex);
+  const alpha = Math.max(0, Math.min(1, t));
+  const r = Math.round(start.r + (end.r - start.r) * alpha);
+  const g = Math.round(start.g + (end.g - start.g) * alpha);
+  const b = Math.round(start.b + (end.b - start.b) * alpha);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function getHeatmapColorForAge(age) {
+  const maxAge = Math.max(1, Number(heatmapDuration) || 20);
+  const t = Math.min(age, maxAge) / maxAge;
+  return blendRgbColor(heatmapStartColor, heatmapEndColor, t);
+}
+
 // Get the color for a cell based on its age and display mode
 function getAgeColor(age){
   const baseColors = [
@@ -1487,13 +1552,7 @@ function getAgeColor(age){
   ];
 
   if(heatmapMode){
-    // Heatmap: gradient from cool to hot by age (clamp age 0..20)
-    const maxAge = 20;
-    const t = Math.min(age, maxAge) / maxAge;
-    const r = Math.round(60 + (240 - 60) * t);
-    const g = Math.round(180 - (180 - 40) * t);
-    const b = Math.round(220 - (220 - 70) * t);
-    return `rgb(${r},${g},${b})`;
+    return getHeatmapColorForAge(age);
   }
 
   if(colorMode){
@@ -2917,6 +2976,127 @@ function toggleColors(){
 
   log("Colors " + (colorMode ? "ON" : "OFF"), "action");
 }
+
+function getHeatmapPresetStorageKey() {
+  return "heatmapColorPresets";
+}
+
+function getStoredHeatmapPresets() {
+  try {
+    const raw = localStorage.getItem(getHeatmapPresetStorageKey());
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn("Failed to read heatmap presets", err);
+    return [];
+  }
+}
+
+function setStoredHeatmapPresets(list) {
+  try {
+    localStorage.setItem(getHeatmapPresetStorageKey(), JSON.stringify(list));
+  } catch (err) {
+    console.warn("Failed to persist heatmap presets", err);
+  }
+}
+
+function ensureDefaultHeatmapPresetEntry() {
+  const list = getStoredHeatmapPresets();
+  if (list.length === 0) {
+    setStoredHeatmapPresets([
+      {
+        id: "default-heatmap-preset",
+        name: "Default Heatmap",
+        description: "Current default heatmap gradient and aging speed.",
+        startColor: "#3cb4dc",
+        endColor: "#f02846",
+        duration: 20
+      }
+    ]);
+  }
+}
+
+function saveCurrentHeatmapPreset(name, startColor, endColor, duration) {
+  const cleanName = String(name || "Preset").trim() || "Preset";
+  const preset = {
+    id: `heatmap-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: cleanName,
+    description: `${startColor} → ${endColor} over ${duration} generations`,
+    startColor: String(startColor || heatmapStartColor),
+    endColor: String(endColor || heatmapEndColor),
+    duration: Number(duration) || heatmapDuration
+  };
+
+  const list = getStoredHeatmapPresets();
+  list.unshift(preset);
+  setStoredHeatmapPresets(list);
+  return preset;
+}
+
+function applyHeatmapPreset(preset) {
+  const safePreset = preset || {};
+  heatmapStartColor = normalizeHexColor(safePreset.startColor || heatmapStartColor);
+  heatmapEndColor = normalizeHexColor(safePreset.endColor || heatmapEndColor);
+  const durationValue = Number(safePreset.duration);
+  heatmapDuration = Number.isFinite(durationValue) && durationValue > 0 ? durationValue : heatmapDuration;
+
+  const startInput = document.getElementById("heatmapStartColorInput");
+  const endInput = document.getElementById("heatmapEndColorInput");
+  const durationInput = document.getElementById("heatmapDurationInput");
+
+  if (startInput) startInput.value = heatmapStartColor;
+  if (endInput) endInput.value = heatmapEndColor;
+  if (durationInput) durationInput.value = String(heatmapDuration);
+
+  log(`Loaded heatmap preset: ${safePreset.name || "Custom"}`, "action");
+}
+
+function loadHeatmapPresetFromLibrary(preset) {
+  applyHeatmapPreset(preset);
+}
+
+function saveActiveHeatmapPresetFromUI() {
+  const start = document.getElementById("heatmapStartColorInput");
+  const end = document.getElementById("heatmapEndColorInput");
+  const duration = document.getElementById("heatmapDurationInput");
+
+  if (!start || !end || !duration) return;
+
+  const startValue = normalizeHexColor(start.value);
+  const endValue = normalizeHexColor(end.value);
+  const durationValue = Number(duration.value);
+  const effectiveDuration = Number.isFinite(durationValue) && durationValue > 0 ? durationValue : 20;
+
+  heatmapStartColor = startValue;
+  heatmapEndColor = endValue;
+  heatmapDuration = effectiveDuration;
+
+  const presetName = prompt("Name for this preset:", `Heatmap ${getStoredHeatmapPresets().length + 1}`);
+  if (presetName === null) {
+    return;
+  }
+
+  saveCurrentHeatmapPreset(presetName, heatmapStartColor, heatmapEndColor, heatmapDuration);
+  log(`Saved heatmap preset: ${presetName}`, "action");
+}
+
+const pendingHeatmapPreset = (() => {
+  try {
+    const raw = localStorage.getItem("pendingHeatmapPreset");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+})();
+
+if (pendingHeatmapPreset) {
+  applyHeatmapPreset(pendingHeatmapPreset);
+  localStorage.removeItem("pendingHeatmapPreset");
+}
+
+ensureDefaultHeatmapPresetEntry();
 
 function updateEraseButton(){
   const btn = document.getElementById("eraseBtn");
