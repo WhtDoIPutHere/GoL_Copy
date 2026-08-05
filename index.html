@@ -73,26 +73,6 @@
     top: 100%;
     left: 0;
   }
-  .hover-info-dropdown {
-    position: relative;
-    display: inline-block;
-  }
-  .hover-info-content {
-    display: none;
-    position: absolute;
-    background-color: rgba(0, 0, 0, 0.9);
-    min-width: 280px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
-    z-index: 1000;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #555;
-    top: 100%;
-    left: 0;
-  }
-  .hover-info-dropdown:hover .hover-info-content {
-    display: block;
-  }
   .settings-dropdown {
     position: relative;
     display: inline-block;
@@ -657,30 +637,10 @@
       </div>
     </div>
     
-    <div class="hover-info-dropdown">
-      <button onclick="saveGridToLibrary()" style="background: #33aa33;">Save Grid</button>
-      <div class="hover-info-content">
-        <div class="shortcut-item"><span>Save Grid</span> <span>Store the full current board as a reusable pattern entry.</span></div>
-      </div>
-    </div>
-    <div class="hover-info-dropdown">
-      <button onclick="saveSelectionToLibrary()" style="background: #33aa33;">Save Selection</button>
-      <div class="hover-info-content">
-        <div class="shortcut-item"><span>Save Selection</span> <span>Save only the active selected region as a pattern snippet.</span></div>
-      </div>
-    </div>
-    <div class="hover-info-dropdown">
-      <button onclick="saveBoardStateToStorage()" style="background: #3366cc;">Save State</button>
-      <div class="hover-info-content">
-        <div class="shortcut-item"><span>Save State</span> <span>Save the current board state to browser storage for later restoration.</span></div>
-      </div>
-    </div>
-    <div class="hover-info-dropdown">
-      <button onclick="loadBoardStateFromStorage()" style="background: #3366cc;">Load State</button>
-      <div class="hover-info-content">
-        <div class="shortcut-item"><span>Load State</span> <span>Restore the most recently saved board state from browser storage.</span></div>
-      </div>
-    </div>
+    <button onclick="saveGridToLibrary()" style="background: #33aa33;">Save Grid</button>
+    <button onclick="saveSelectionToLibrary()" style="background: #33aa33;">Save Selection</button>
+    <button onclick="saveBoardStateToStorage()" style="background: #3366cc;">Save State</button>
+    <button onclick="loadBoardStateFromStorage()" style="background: #3366cc;">Load State</button>
     <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
     <button onclick="window.open('https://copy.sh/life/examples/','_blank')" style="background: #445;">RLE Library</button>
     <button onclick="window.open('library.html','_blank')" style="background:#445;">Pattern Database</button>
