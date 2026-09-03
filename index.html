@@ -100,15 +100,24 @@
   #settingsPanel {
     display: none;
     position: absolute;
-    top: 100%;
-    right: 0;
-    background: rgba(10, 10, 10, 0.96);
+    top: 0;
+    left: calc(100% + 10px);
+    background: rgba(0, 0, 0, 0.9);
+    min-width: 280px;
+    width: min(320px, calc(100vw - 28px));
+    max-width: min(320px, calc(100vw - 28px));
+    max-height: calc(100vh - 40px);
+    padding: 10px;
+    border-radius: 8px;
     border: 1px solid #555;
-    border-radius: 10px;
-    padding: 12px;
-    min-width: 260px;
-    box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
     z-index: 1000;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    color: #ddd;
+    font-size: 12px;
+    line-height: 1.4;
   }
   #settingsPanel label {
     display: flex;
@@ -690,7 +699,7 @@
     </div>
     <button onclick="window.open('https://conwaylife.appspot.com/library','_blank')" style="background: #445;">Pattern Library</button>
     <button onclick="window.open('https://copy.sh/life/examples/','_blank')" style="background: #445;">RLE Library</button>
-    <button onclick="window.open('library.html','_blank')" style="background:#445;">Pattern Database</button>
+    <button onclick="window.location.href='library.html'" style="background:#445;">Pattern Database</button>
   </div>
 
   <div class="row">
@@ -749,8 +758,13 @@
         </select>
       </label>
       <div class="settings-note">Choose how the living cell count is shown in the status bar and summaries. Scientific notation is rounded to three decimal places.</div>
+      <label style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px;">
+        <input type="checkbox" id="frameSkipCheckbox" checked>
+        <span>Frame skipping at high speed</span>
+      </label>
+      <div class="settings-note">When enabled, the simulation can advance multiple generations per frame at high speed to keep up with the selected speed without stalling the browser.</div>
       <div style="margin-top:10px; border-top:1px solid #2a2a2a; padding-top:8px; display:flex; flex-direction:column; gap:6px;">
-        <strong style="color:#8ecae6;">Heatmap Color Preset</strong>
+        <strong style="color:#8ecae6; font-size:13px;">Heatmap Color Preset</strong>
         <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span>Start</span>
           <input type="color" id="heatmapStartColorInput" value="#3cb4dc" style="width:46px; height:26px; padding:0;">
@@ -764,7 +778,33 @@
           <input type="number" id="heatmapDurationInput" min="1" max="200" value="20" style="width:64px; padding:3px; font-size:12px;">
           <span>generations</span>
         </label>
-        <button type="button" onclick="saveActiveHeatmapPresetFromUI()" style="align-self:flex-start; background:#3366cc;">Save Preset</button>
+        <button type="button" onclick="saveActiveHeatmapPresetFromUI()" style="align-self:flex-start; background:#3366cc;">Save Heatmap Preset</button>
+      </div>
+      <div style="margin-top:10px; border-top:1px solid #2a2a2a; padding-top:8px; display:flex; flex-direction:column; gap:6px;">
+        <strong style="color:#8ecae6; font-size:13px;">Color Stage Preset</strong>
+        <label style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span>Stages</span>
+          <input type="number" id="colorStageCountInput" min="2" max="12" value="4" style="width:52px; padding:3px; font-size:12px;" onchange="refreshColorStageInputs()">
+        </label>
+        <div id="colorStageInputs" style="display:flex; flex-direction:column; gap:4px; max-height:220px; overflow-y:auto; padding-right:4px;">
+          <label class="color-stage-input-row" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 1</span><input type="color" value="#9ddc15"></label>
+          <label class="color-stage-input-row" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 2</span><input type="color" value="#ffd539"></label>
+          <label class="color-stage-input-row" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 3</span><input type="color" value="#f58f20"></label>
+          <label class="color-stage-input-row" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 4</span><input type="color" value="#ca204d"></label>
+          <label class="color-stage-input-row" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 5</span><input type="color" value="#ff6b6b"></label>
+          <label class="color-stage-input-row" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 6</span><input type="color" value="#8b5cf6"></label>
+          <label class="color-stage-input-row" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 7</span><input type="color" value="#38bdf8"></label>
+          <label class="color-stage-input-row" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 8</span><input type="color" value="#34d399"></label>
+          <label class="color-stage-input-row" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 9</span><input type="color" value="#f472b6"></label>
+          <label class="color-stage-input-row" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 10</span><input type="color" value="#f59e0b"></label>
+          <label class="color-stage-input-row" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 11</span><input type="color" value="#22d3ee"></label>
+          <label class="color-stage-input-row" style="display:none; align-items:center; gap:6px; flex-wrap:wrap;"><span>Stage 12</span><input type="color" value="#e879f9"></label>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <input type="checkbox" id="colorCycleLoopInput">
+          <span>Loop stages</span>
+        </label>
+        <button type="button" onclick="saveColorCyclePresetFromUI()" style="align-self:flex-start; background:#3366cc;">Save Color Preset</button>
       </div>
     </div>
   </div>
@@ -939,6 +979,13 @@ let heatmapMode = false; // Whether to show population heatmap
 let heatmapStartColor = "#3cb4dc"; // Default heatmap start color
 let heatmapEndColor = "#f02846"; // Default heatmap end color
 let heatmapDuration = 20; // Number of generations for the heatmap ramp to fully transition
+let colorCycleStages = [
+  "#9ddc15",
+  "#ffd539",
+  "#f58f20",
+  "#ca204d"
+];
+let colorCycleLoop = false; // Whether the age color cycle loops back to the start
 let ghostMode = false; // Whether to show pattern ghost preview
 let populationHistory = []; // History of population counts for graphs
 let cellAges = new Map(); // Map of cell coordinates to their age
@@ -1224,6 +1271,8 @@ function serializeBoardState() {
     heatmapStartColor,
     heatmapEndColor,
     heatmapDuration,
+    colorCycleStages,
+    colorCycleLoop,
     ghostMode,
     patternRotation,
     patternMirror,
@@ -1279,6 +1328,8 @@ function applyBoardState(state) {
   heatmapStartColor = state.heatmapStartColor || heatmapStartColor;
   heatmapEndColor = state.heatmapEndColor || heatmapEndColor;
   heatmapDuration = Number(state.heatmapDuration) || heatmapDuration;
+  colorCycleStages = Array.isArray(state.colorCycleStages) && state.colorCycleStages.length ? state.colorCycleStages.map(normalizeHexColor) : colorCycleStages;
+  colorCycleLoop = Boolean(state.colorCycleLoop);
   ghostMode = Boolean(state.ghostMode);
   patternRotation = Number(state.patternRotation) || 0;
   patternMirror = Number(state.patternMirror) || 0;
@@ -1315,6 +1366,14 @@ function applyBoardState(state) {
   if (heatmapStartInput) heatmapStartInput.value = heatmapStartColor;
   if (heatmapEndInput) heatmapEndInput.value = heatmapEndColor;
   if (heatmapDurationInput) heatmapDurationInput.value = String(heatmapDuration);
+
+  const colorStageCountInput = document.getElementById("colorStageCountInput");
+  if (colorStageCountInput) {
+    colorStageCountInput.value = String(colorCycleStages.length);
+  }
+  updateColorStageInputs();
+  const colorLoopCheckbox = document.getElementById("colorCycleLoopInput");
+  if (colorLoopCheckbox) colorLoopCheckbox.checked = colorCycleLoop;
 
   if (graphModalOpen) {
     redrawExpandedGraph();
@@ -1543,21 +1602,31 @@ function getHeatmapColorForAge(age) {
 }
 
 // Get the color for a cell based on its age and display mode
-function getAgeColor(age){
-  const baseColors = [
-    'rgb(157,220,21)',  // young
-    'rgb(255,213,57)',  // 2nd stage
-    'rgb(245,143,32)',  // 3rd stage
-    'rgb(202,32,77)'    // oldest
+function getDefaultColorCycleStages() {
+  return [
+    '#9ddc15',
+    '#ffd539',
+    '#f58f20',
+    '#ca204d'
   ];
+}
 
+function getAgeColor(age){
   if(heatmapMode){
     return getHeatmapColorForAge(age);
   }
 
   if(colorMode){
-    let index = Math.min(age, baseColors.length - 1);
-    return baseColors[index];
+    const stages = Array.isArray(colorCycleStages) && colorCycleStages.length ? colorCycleStages : getDefaultColorCycleStages();
+    const stageCount = stages.length;
+    const safeAge = Number(age) || 0;
+    let index = 0;
+    if (colorCycleLoop && stageCount > 0) {
+      index = safeAge % stageCount;
+    } else if (stageCount > 0) {
+      index = Math.min(safeAge, stageCount - 1);
+    }
+    return stages[index];
   }
 
   return "lime";
@@ -2722,6 +2791,13 @@ document.addEventListener("DOMContentLoaded", function() {
       updateExpandedGraphInfo();
     });
   }
+  const frameSkipCheckbox = document.getElementById("frameSkipCheckbox");
+  if (frameSkipCheckbox) {
+    frameSkipCheckbox.checked = frameSkippingEnabled;
+    frameSkipCheckbox.addEventListener("change", () => {
+      toggleFrameSkipping(frameSkipCheckbox.checked);
+    });
+  }
   if (expandedSpeed) {
     expandedSpeed.value = mainSpeed ? mainSpeed.value : "10";
     expandedSpeed.addEventListener("input", function(e) {
@@ -2752,9 +2828,28 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // Loop
-let lastTime=0;
+let lastTime = 0;
+let stepAccumulator = 0;
+let frameSkippingEnabled = true;
+const MAX_STEPS_PER_FRAME = 5;
+
+function toggleFrameSkipping(enabled) {
+  frameSkippingEnabled = Boolean(enabled);
+  stepAccumulator = 0;
+  const checkbox = document.getElementById("frameSkipCheckbox");
+  if (checkbox) checkbox.checked = frameSkippingEnabled;
+  log(frameSkippingEnabled ? "High-speed frame skipping enabled" : "High-speed frame skipping disabled", "action");
+}
+
 function loop(t){
   requestAnimationFrame(loop);
+
+  if (!lastTime) {
+    lastTime = t;
+  }
+
+  const delta = Math.min(100, t - lastTime);
+  lastTime = t;
 
   // --- FPS CALC ---
   frameCount++;
@@ -2766,11 +2861,26 @@ function loop(t){
     document.getElementById("fpsCount").textContent = fps;
   }
 
-  let speed=document.getElementById("speed").value;
+  const speed = Number(document.getElementById("speed").value) || 10;
+  const stepInterval = 1000 / speed;
 
-  if(running && t-lastTime>1000/speed){
-    step();
-    lastTime=t;
+  if (running) {
+    if (frameSkippingEnabled) {
+      stepAccumulator += delta;
+      let stepsThisFrame = 0;
+      while (stepAccumulator >= stepInterval && stepsThisFrame < MAX_STEPS_PER_FRAME) {
+        step();
+        stepAccumulator -= stepInterval;
+        stepsThisFrame += 1;
+      }
+
+      if (stepAccumulator >= stepInterval && stepsThisFrame >= MAX_STEPS_PER_FRAME) {
+        stepAccumulator = 0;
+      }
+    } else if (t - lastTime > stepInterval) {
+      step();
+      lastTime = t;
+    }
   }
 
   draw();
@@ -2866,8 +2976,22 @@ function toggleSettingsPanel(e){
   e.stopPropagation();
   const panel = document.getElementById("settingsPanel");
   if (!panel) return;
-  panel.style.display = panel.style.display === "block" ? "none" : "block";
+  const showing = panel.style.display !== "block";
+  panel.style.display = showing ? "block" : "none";
+  if (showing) {
+    const maxHeight = Math.max(220, window.innerHeight - 40);
+    panel.style.maxHeight = `${maxHeight}px`;
+    panel.style.overflowY = "auto";
+    panel.style.overflowX = "hidden";
+  }
 }
+
+window.addEventListener("resize", () => {
+  const panel = document.getElementById("settingsPanel");
+  if (!panel || panel.style.display !== "block") return;
+  const maxHeight = Math.max(220, window.innerHeight - 40);
+  panel.style.maxHeight = `${maxHeight}px`;
+});
 
 function updateGraphGenerationScaleSetting() {
   const select = document.getElementById("graphGenerationScaleSelect");
@@ -2977,43 +3101,90 @@ function toggleColors(){
   log("Colors " + (colorMode ? "ON" : "OFF"), "action");
 }
 
-function getHeatmapPresetStorageKey() {
-  return "heatmapColorPresets";
-}
+const COLOR_PRESET_STORAGE_KEY = "colorPresets";
+const LEGACY_HEATMAP_PRESET_STORAGE_KEY = "heatmapColorPresets";
 
-function getStoredHeatmapPresets() {
+function getColorPresets() {
   try {
-    const raw = localStorage.getItem(getHeatmapPresetStorageKey());
+    const raw = localStorage.getItem(COLOR_PRESET_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.warn("Failed to read color presets", err);
+  }
+
+  try {
+    const raw = localStorage.getItem(LEGACY_HEATMAP_PRESET_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
-    console.warn("Failed to read heatmap presets", err);
+    console.warn("Failed to read legacy heatmap presets", err);
     return [];
   }
 }
 
-function setStoredHeatmapPresets(list) {
+function saveColorPresets(list) {
   try {
-    localStorage.setItem(getHeatmapPresetStorageKey(), JSON.stringify(list));
+    localStorage.setItem(COLOR_PRESET_STORAGE_KEY, JSON.stringify(list));
   } catch (err) {
-    console.warn("Failed to persist heatmap presets", err);
+    console.warn("Failed to persist color presets", err);
   }
 }
 
+function getHeatmapColorPresets() {
+  return getColorPresets().filter(p => p.type === "heatmap" || (p.startColor && p.endColor));
+}
+
+function getAgeColorPresets() {
+  return getColorPresets().filter(p => p.type === "color-cycle" || Array.isArray(p.stages));
+}
+
+function getStoredHeatmapPresets() {
+  return getHeatmapColorPresets();
+}
+
+function setStoredHeatmapPresets(list) {
+  saveHeatmapColorPresets(list);
+}
+
+function saveHeatmapColorPresets(list) {
+  const current = getColorPresets();
+  const otherPresets = current.filter(p => p.type !== "heatmap" && !(p.startColor && p.endColor));
+  saveColorPresets([...otherPresets, ...list]);
+}
+
 function ensureDefaultHeatmapPresetEntry() {
-  const list = getStoredHeatmapPresets();
-  if (list.length === 0) {
-    setStoredHeatmapPresets([
-      {
+  const list = getColorPresets();
+  const hasHeatmap = list.some(p => p.type === "heatmap" || (p.startColor && p.endColor));
+  const hasCycle = list.some(p => p.type === "color-cycle" || Array.isArray(p.stages));
+
+  if (!hasHeatmap || !hasCycle) {
+    const merged = [...list];
+    if (!hasHeatmap) {
+      merged.unshift({
         id: "default-heatmap-preset",
+        type: "heatmap",
         name: "Default Heatmap",
         description: "Current default heatmap gradient and aging speed.",
         startColor: "#3cb4dc",
         endColor: "#f02846",
         duration: 20
-      }
-    ]);
+      });
+    }
+    if (!hasCycle) {
+      merged.unshift({
+        id: "default-color-cycle-preset",
+        type: "color-cycle",
+        name: "Default Colors",
+        description: "Current default age-color cycle.",
+        stages: ["#9ddc15", "#ffd539", "#f58f20", "#ca204d"],
+        loop: false
+      });
+    }
+    saveColorPresets(merged);
   }
 }
 
@@ -3021,6 +3192,7 @@ function saveCurrentHeatmapPreset(name, startColor, endColor, duration) {
   const cleanName = String(name || "Preset").trim() || "Preset";
   const preset = {
     id: `heatmap-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type: "heatmap",
     name: cleanName,
     description: `${startColor} → ${endColor} over ${duration} generations`,
     startColor: String(startColor || heatmapStartColor),
@@ -3028,9 +3200,28 @@ function saveCurrentHeatmapPreset(name, startColor, endColor, duration) {
     duration: Number(duration) || heatmapDuration
   };
 
-  const list = getStoredHeatmapPresets();
-  list.unshift(preset);
-  setStoredHeatmapPresets(list);
+  const list = getColorPresets();
+  const filtered = list.filter(p => !(p.type === "heatmap" || (p.startColor && p.endColor)));
+  filtered.unshift(preset);
+  saveColorPresets(filtered);
+  return preset;
+}
+
+function saveCurrentColorCyclePreset(name, stages, loop) {
+  const cleanName = String(name || "Preset").trim() || "Preset";
+  const preset = {
+    id: `color-cycle-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type: "color-cycle",
+    name: cleanName,
+    description: `${stages.length} stage${stages.length === 1 ? "" : "s"}${loop ? " • loops" : ""}`,
+    stages: Array.isArray(stages) ? stages.map(v => String(v)) : [],
+    loop: Boolean(loop)
+  };
+
+  const list = getColorPresets();
+  const filtered = list.filter(p => !(p.type === "color-cycle" || Array.isArray(p.stages)));
+  filtered.unshift(preset);
+  saveColorPresets(filtered);
   return preset;
 }
 
@@ -3052,8 +3243,65 @@ function applyHeatmapPreset(preset) {
   log(`Loaded heatmap preset: ${safePreset.name || "Custom"}`, "action");
 }
 
+function applyColorCyclePreset(preset) {
+  const safePreset = preset || {};
+  const stages = Array.isArray(safePreset.stages) && safePreset.stages.length ? safePreset.stages.map(normalizeHexColor) : colorCycleStages;
+  colorCycleStages = stages;
+  colorCycleLoop = Boolean(safePreset.loop);
+
+  const countInput = document.getElementById("colorStageCountInput");
+  const loopInput = document.getElementById("colorCycleLoopInput");
+  if (countInput) countInput.value = String(stages.length);
+  if (loopInput) loopInput.checked = colorCycleLoop;
+  updateColorStageInputs();
+
+  log(`Loaded color cycle preset: ${safePreset.name || "Custom"}`, "action");
+}
+
 function loadHeatmapPresetFromLibrary(preset) {
   applyHeatmapPreset(preset);
+}
+
+function loadColorCyclePresetFromLibrary(preset) {
+  applyColorCyclePreset(preset);
+}
+
+function refreshColorStageInputs() {
+  const container = document.getElementById("colorStageInputs");
+  const countInput = document.getElementById("colorStageCountInput");
+  if (!container || !countInput) return;
+
+  const count = Math.max(2, Math.min(12, Number(countInput.value) || 4));
+  countInput.value = String(count);
+
+  const stageInputs = Array.from(container.querySelectorAll(".color-stage-input-row"));
+  stageInputs.forEach((row, index) => {
+    const visible = index < count;
+    row.style.display = visible ? "flex" : "none";
+    const colorInput = row.querySelector("input[type='color']");
+    if (colorInput && !colorInput.value) {
+      colorInput.value = colorCycleStages[index] || "#ffffff";
+    }
+  });
+
+  for (let i = 0; i < count; i++) {
+    const row = stageInputs[i];
+    if (!row) continue;
+    const input = row.querySelector("input[type='color']");
+    if (input && colorCycleStages[i]) {
+      input.value = normalizeHexColor(colorCycleStages[i]);
+    }
+  }
+}
+
+function updateColorStageInputs() {
+  const countInput = document.getElementById("colorStageCountInput");
+  const loopInput = document.getElementById("colorCycleLoopInput");
+  if (countInput) {
+    countInput.value = String(Math.max(2, Math.min(12, colorCycleStages.length || 4)));
+  }
+  if (loopInput) loopInput.checked = colorCycleLoop;
+  refreshColorStageInputs();
 }
 
 function saveActiveHeatmapPresetFromUI() {
@@ -3081,6 +3329,34 @@ function saveActiveHeatmapPresetFromUI() {
   log(`Saved heatmap preset: ${presetName}`, "action");
 }
 
+function saveColorCyclePresetFromUI() {
+  const countInput = document.getElementById("colorStageCountInput");
+  const loopInput = document.getElementById("colorCycleLoopInput");
+  const container = document.getElementById("colorStageInputs");
+  if (!countInput || !container || !loopInput) return;
+
+  const count = Math.max(2, Math.min(12, Number(countInput.value) || 4));
+  const nextStages = [];
+  const rows = Array.from(container.querySelectorAll(".color-stage-input-row"));
+
+  for (let i = 0; i < count; i++) {
+    const row = rows[i];
+    const input = row ? row.querySelector("input[type='color']") : null;
+    nextStages.push(normalizeHexColor((input && input.value) || "#ffffff"));
+  }
+
+  colorCycleStages = nextStages;
+  colorCycleLoop = Boolean(loopInput.checked);
+
+  const presetName = prompt("Name for this color preset:", `Color Cycle ${getAgeColorPresets().length + 1}`);
+  if (presetName === null) {
+    return;
+  }
+
+  saveCurrentColorCyclePreset(presetName, colorCycleStages, colorCycleLoop);
+  log(`Saved color cycle preset: ${presetName}`, "action");
+}
+
 const pendingHeatmapPreset = (() => {
   try {
     const raw = localStorage.getItem("pendingHeatmapPreset");
@@ -3091,9 +3367,24 @@ const pendingHeatmapPreset = (() => {
   }
 })();
 
+const pendingColorCyclePreset = (() => {
+  try {
+    const raw = localStorage.getItem("pendingColorCyclePreset");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+})();
+
 if (pendingHeatmapPreset) {
   applyHeatmapPreset(pendingHeatmapPreset);
   localStorage.removeItem("pendingHeatmapPreset");
+}
+
+if (pendingColorCyclePreset) {
+  applyColorCyclePreset(pendingColorCyclePreset);
+  localStorage.removeItem("pendingColorCyclePreset");
 }
 
 ensureDefaultHeatmapPresetEntry();

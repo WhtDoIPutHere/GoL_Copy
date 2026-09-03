@@ -202,13 +202,16 @@
   <button onclick="setTab('favorites')" id="tab-favorites">Favorites</button>
   <button onclick="setTab('custom')" id="tab-custom">Custom</button>
   <button onclick="setTab('color-presets')" id="tab-color-presets">Color Presets</button>
+  <button id="exportLibraryBtn" onclick="exportLibraryData()">Export Saved</button>
+  <button id="importLibraryBtn" onclick="document.getElementById('libraryImportInput').click()">Import Saved</button>
+  <input id="libraryImportInput" type="file" accept=".json,application/json" style="display:none" onchange="handleLibraryImportFile(event)" />
   <button onclick="window.location.href='index.html'">Go to Game of Life</button>
 </header>
 
 <div class="container">
   <table>
     <thead>
-      <tr>
+      <tr id="libraryTableHeadRow">
         <th>Preview</th>
         <th>★</th>
         <th onclick="sortBy('Name')" id="h-Name">Name</th>

@@ -6,14 +6,24 @@ let currentPage = 1; // Current page for pagination
 const pageSize = 50; // Number of patterns per page
 let sortKey = null; // Current sort column: "Name", "Description", "Rule", "Cells", "BBox"
 let sortDir = 0; // Sort direction: 0 = no sort, 1 = ascending, -1 = descending
+const COLOR_PRESET_STORAGE_KEY = "colorPresets";
 const HEATMAP_PRESET_STORAGE_KEY = "heatmapColorPresets";
 const DEFAULT_HEATMAP_PRESET = {
   id: "default-heatmap-preset",
+  type: "heatmap",
   name: "Default Heatmap",
   description: "Current default heatmap gradient and aging speed.",
   startColor: "#3cb4dc",
   endColor: "#f02846",
   duration: 20
+};
+const DEFAULT_COLOR_CYCLE_PRESET = {
+  id: "default-color-cycle-preset",
+  type: "color-cycle",
+  name: "Default Colors",
+  description: "Current default age-color cycle.",
+  stages: ["#9ddc15", "#ffd539", "#f58f20", "#ca204d"],
+  loop: false
 };
 
 function readStoredArray(key) {
@@ -43,18 +53,45 @@ function getCustomPatterns() {
   return readStoredArray("customPatterns");
 }
 
+function getColorPresets() {
+  const list = readStoredArray(COLOR_PRESET_STORAGE_KEY);
+  if (list.length) return list;
+  const legacyHeatmap = readStoredArray(HEATMAP_PRESET_STORAGE_KEY);
+  if (legacyHeatmap.length) {
+    saveColorPresets(legacyHeatmap);
+    return legacyHeatmap;
+  }
+  return [];
+}
+
+function saveColorPresets(list) {
+  writeStoredArray(COLOR_PRESET_STORAGE_KEY, list);
+}
+
 function getHeatmapColorPresets() {
-  return readStoredArray(HEATMAP_PRESET_STORAGE_KEY);
+  return getColorPresets().filter(p => p.type === "heatmap" || (p.startColor && p.endColor));
+}
+
+function getAgeColorPresets() {
+  return getColorPresets().filter(p => p.type === "color-cycle" || Array.isArray(p.stages));
 }
 
 function saveHeatmapColorPresets(list) {
-  writeStoredArray(HEATMAP_PRESET_STORAGE_KEY, list);
+  const current = getColorPresets();
+  const others = current.filter(p => p.type !== "heatmap" && !(p.startColor && p.endColor));
+  saveColorPresets([...others, ...list]);
 }
 
 function ensureDefaultHeatmapPreset() {
-  const list = getHeatmapColorPresets();
-  if (list.length === 0) {
-    saveHeatmapColorPresets([DEFAULT_HEATMAP_PRESET]);
+  const list = getColorPresets();
+  const hasHeatmap = list.some(p => p.type === "heatmap" || (p.startColor && p.endColor));
+  const hasCycle = list.some(p => p.type === "color-cycle" || Array.isArray(p.stages));
+
+  if (!hasHeatmap || !hasCycle) {
+    const merged = [...list];
+    if (!hasHeatmap) merged.unshift(DEFAULT_HEATMAP_PRESET);
+    if (!hasCycle) merged.unshift(DEFAULT_COLOR_CYCLE_PRESET);
+    saveColorPresets(merged);
   }
 }
 
@@ -62,6 +99,7 @@ function saveCurrentHeatmapPreset(name, startColor, endColor, duration) {
   const cleanName = (name || "Preset").trim() || "Preset";
   const preset = {
     id: `heatmap-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type: "heatmap",
     name: cleanName,
     description: `${startColor} → ${endColor} over ${duration} generations`,
     startColor: String(startColor || DEFAULT_HEATMAP_PRESET.startColor),
@@ -69,9 +107,28 @@ function saveCurrentHeatmapPreset(name, startColor, endColor, duration) {
     duration: Number(duration) || DEFAULT_HEATMAP_PRESET.duration
   };
 
-  const list = getHeatmapColorPresets();
-  list.unshift(preset);
-  saveHeatmapColorPresets(list);
+  const list = getColorPresets();
+  const filtered = list.filter(p => !(p.type === "heatmap" || (p.startColor && p.endColor)));
+  filtered.unshift(preset);
+  saveColorPresets(filtered);
+  return preset;
+}
+
+function saveCurrentColorCyclePreset(name, stages, loop) {
+  const cleanName = (name || "Preset").trim() || "Preset";
+  const preset = {
+    id: `color-cycle-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type: "color-cycle",
+    name: cleanName,
+    description: `${stages.length} stage${stages.length === 1 ? "" : "s"}${loop ? " • loops" : ""}`,
+    stages: stages.map(v => String(v)),
+    loop: Boolean(loop)
+  };
+
+  const list = getColorPresets();
+  const filtered = list.filter(p => !(p.type === "color-cycle" || Array.isArray(p.stages)));
+  filtered.unshift(preset);
+  saveColorPresets(filtered);
   return preset;
 }
 
@@ -88,6 +145,151 @@ function loadHeatmapPresetFromLibrary(preset) {
     console.warn("Failed to persist pending preset", err);
   }
   window.location.href = "index.html";
+}
+
+function loadColorCyclePresetFromLibrary(preset) {
+  const safePreset = preset || DEFAULT_COLOR_CYCLE_PRESET;
+  if (window.opener && typeof window.opener.loadColorCyclePresetFromLibrary === "function") {
+    window.opener.loadColorCyclePresetFromLibrary(safePreset);
+    return;
+  }
+
+  try {
+    localStorage.setItem("pendingColorCyclePreset", JSON.stringify(safePreset));
+  } catch (err) {
+    console.warn("Failed to persist pending color cycle preset", err);
+  }
+  window.location.href = "index.html";
+}
+
+function loadPresetFromLibrary(preset) {
+  if (!preset) return;
+  if (preset.type === "color-cycle" || Array.isArray(preset.stages)) {
+    loadColorCyclePresetFromLibrary(preset);
+    return;
+  }
+  loadHeatmapPresetFromLibrary(preset);
+}
+
+const LIBRARY_EXPORT_KEYS = [
+  "customPatterns",
+  "favorites",
+  "recent",
+  "colorPresets",
+  "heatmapColorPresets",
+  "gol-board-states"
+];
+
+function readStoredValue(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return null;
+    return JSON.parse(raw);
+  } catch (error) {
+    console.warn(`Failed to read ${key} from localStorage`, error);
+    return null;
+  }
+}
+
+function readStoredArraySafe(key) {
+  const value = readStoredValue(key);
+  return Array.isArray(value) ? value : [];
+}
+
+function writeStoredValue(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`Failed to write ${key} to localStorage`, error);
+  }
+}
+
+function exportLibraryData() {
+  const payload = {};
+
+  for (const key of LIBRARY_EXPORT_KEYS) {
+    const value = readStoredValue(key);
+    if (value !== null) {
+      payload[key] = value;
+    }
+  }
+
+  const exported = JSON.stringify(payload, null, 2);
+  const blob = new Blob([exported], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "gol-library-export.json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  return payload;
+}
+
+function importLibraryData(data) {
+  if (!data || typeof data !== "object") {
+    throw new Error("Import data must be a JSON object.");
+  }
+
+  const entries = Object.keys(data);
+  if (!entries.length) {
+    throw new Error("The import file is empty.");
+  }
+
+  for (const key of LIBRARY_EXPORT_KEYS) {
+    if (data[key] === undefined) continue;
+    const incoming = data[key];
+    if (Array.isArray(incoming)) {
+      writeStoredValue(key, incoming);
+    } else if (key === "gol-board-states" && incoming && typeof incoming === "object") {
+      writeStoredValue(key, incoming);
+    }
+  }
+
+  if (data.colorPresets && Array.isArray(data.colorPresets)) {
+    saveColorPresets(data.colorPresets);
+  }
+
+  if (data.heatmapColorPresets && Array.isArray(data.heatmapColorPresets)) {
+    saveHeatmapColorPresets(data.heatmapColorPresets);
+  }
+
+  if (data.customPatterns && Array.isArray(data.customPatterns)) {
+    saveCustomPatterns(data.customPatterns);
+  }
+
+  if (data.favorites && Array.isArray(data.favorites)) {
+    saveFavorites(data.favorites);
+  }
+
+  if (data.recent && Array.isArray(data.recent)) {
+    saveRecent(data.recent);
+  }
+
+  if (data["gol-board-states"] && Array.isArray(data["gol-board-states"])) {
+    writeStoredValue("gol-board-states", data["gol-board-states"]);
+  }
+
+  alert("Saved data imported successfully.");
+  window.location.reload();
+}
+
+async function handleLibraryImportFile(event) {
+  const file = event.target && event.target.files && event.target.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    importLibraryData(parsed);
+  } catch (error) {
+    console.error(error);
+    alert(`Import failed: ${error.message || "Invalid JSON file."}`);
+  } finally {
+    event.target.value = "";
+  }
 }
 
 function saveCustomPatterns(list) {
@@ -194,7 +396,7 @@ function applyFilter() {
     const rec = getRecent();
     base = rec.map(id => getAllPatterns().find(p => p["Pattern File"] === id)).filter(Boolean);
   } else if (currentTab === "color-presets") {
-    base = getHeatmapColorPresets();
+    base = getColorPresets();
   }
 
   filtered = base.filter(p =>
@@ -291,12 +493,46 @@ function updateSortIndicators() {
   }
 }
 
+function applyTableHeaderForCurrentTab() {
+  const headRow = document.getElementById("libraryTableHeadRow");
+  if (!headRow) return;
+
+  if (currentTab === "color-presets") {
+    headRow.innerHTML = `
+      <th>Preview</th>
+      <th onclick="sortBy('Name')" id="h-Name">Name</th>
+      <th>Colors</th>
+      <th>Mode</th>
+      <th>Load</th>
+    `;
+    return;
+  }
+
+  headRow.innerHTML = `
+    <th>Preview</th>
+    <th>★</th>
+    <th onclick="sortBy('Name')" id="h-Name">Name</th>
+    <th onclick="sortBy('Description')" id="h-Description">Description</th>
+    <th>RLE</th>
+    <th onclick="sortBy('Rule')" id="h-Rule">Rule</th>
+    <th onclick="sortBy('Cells')" id="h-Cells">Cells</th>
+    <th onclick="sortBy('BBox')" id="h-BBox">Bounding Box</th>
+    <th>Load</th>
+  `;
+}
+
 // Render the pattern table with pagination
 async function render() {
   const body = document.getElementById("tableBody");
   body.innerHTML = "";
+  applyTableHeaderForCurrentTab();
 
   updateSortIndicators();
+
+  const pagination = document.getElementById("pagination");
+  if (pagination) {
+    pagination.innerHTML = currentTab === "color-presets" ? "" : pagination.innerHTML;
+  }
 
   const start = (currentPage - 1) * pageSize;
   const pageItems = filtered.slice(start, start + pageSize);
@@ -304,20 +540,20 @@ async function render() {
   if (currentTab === "color-presets") {
     for (let p of pageItems) {
       const row = document.createElement("tr");
-      const gradient = `linear-gradient(90deg, ${p.startColor || "#9ddc15"}, ${p.endColor || "#ca204d"})`;
+      const isCycle = p.type === "color-cycle" || Array.isArray(p.stages);
+      const gradient = isCycle
+        ? `linear-gradient(90deg, ${Array.isArray(p.stages) ? p.stages.map(c => c).join(", ") : "#9ddc15, #ffd539, #f58f20, #ca204d"})`
+        : `linear-gradient(90deg, ${p.startColor || "#9ddc15"}, ${p.endColor || "#ca204d"})`;
       row.innerHTML = `
         <td><div style="width:70px;height:50px;border:1px solid #333;background:${gradient};"></div></td>
-        <td></td>
         <td>${p.name || p.Name || ""}</td>
-        <td class="desc" title="${p.description || p.Description || " "}">${p.description || p.Description || " "}</td>
-        <td><span style="color:#8ecae6;font-family:monospace;">${p.startColor || ""}</span></td>
-        <td><span style="color:#8ecae6;font-family:monospace;">${p.endColor || ""}</span></td>
-        <td class="num">${p.duration || ""}</td>
+        <td><span style="color:#8ecae6;font-family:monospace;">${isCycle ? (Array.isArray(p.stages) ? p.stages.join(" → ") : "") : `${p.startColor || ""} → ${p.endColor || ""}`}</span></td>
+        <td><span style="color:#8ecae6;font-family:monospace;">${isCycle ? (p.loop ? "Loop" : "No loop") : `${p.duration || ""} gen`}</span></td>
         <td><button type="button" class="load-preset-btn">Load</button></td>
       `;
       const loadButton = row.querySelector(".load-preset-btn");
       if (loadButton) {
-        loadButton.addEventListener("click", () => loadHeatmapPresetFromLibrary(p));
+        loadButton.addEventListener("click", () => loadPresetFromLibrary(p));
       }
       body.appendChild(row);
     }
