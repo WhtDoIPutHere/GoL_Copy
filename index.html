@@ -2865,8 +2865,9 @@ function loop(t){
   const stepInterval = 1000 / speed;
 
   if (running) {
+    stepAccumulator += delta;
+
     if (frameSkippingEnabled) {
-      stepAccumulator += delta;
       let stepsThisFrame = 0;
       while (stepAccumulator >= stepInterval && stepsThisFrame < MAX_STEPS_PER_FRAME) {
         step();
@@ -2877,9 +2878,9 @@ function loop(t){
       if (stepAccumulator >= stepInterval && stepsThisFrame >= MAX_STEPS_PER_FRAME) {
         stepAccumulator = 0;
       }
-    } else if (t - lastTime > stepInterval) {
+    } else if (stepAccumulator >= stepInterval) {
       step();
-      lastTime = t;
+      stepAccumulator = 0;
     }
   }
 
