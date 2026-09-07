@@ -204,6 +204,80 @@ function writeStoredValue(key, value) {
   }
 }
 
+function mergeSavedBoardStates(incomingStates) {
+  const existingStates = getSavedStateEntriesForExport();
+  const incomingById = new Map(
+    incomingStates
+      .filter(entry => entry && typeof entry === "object")
+      .map(entry => [entry.id || `imported-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, entry])
+  );
+  const merged = [
+    ...incomingById.values(),
+    ...existingStates.filter(entry => !incomingById.has(entry.id))
+  ];
+  writeStoredValue("gol-board-states", merged);
+  return merged;
+}
+
+function mergeStoredItems(key, incomingItems, getIdentity) {
+  const existingItems = readStoredArraySafe(key);
+  const incomingById = new Map(
+    incomingItems
+      .filter(item => item && typeof item === "object")
+      .map(item => [getIdentity(item), item])
+  );
+  const merged = [
+    ...incomingById.values(),
+    ...existingItems.filter(item => !incomingById.has(getIdentity(item)))
+  ];
+  writeStoredValue(key, merged);
+  return merged;
+}
+
+let exportCooldownUntil = 0;
+let exportCooldownTimer = null;
+const EXPORT_COOLDOWN_MS = 10000;
+
+function updateExportCooldownButtons() {
+  const remaining = Math.max(0, exportCooldownUntil - Date.now());
+  const buttons = document.querySelectorAll("#exportLibraryBtn, .row-export-btn, #exportMenu button");
+  buttons.forEach(button => {
+    button.disabled = remaining > 0;
+    if (remaining > 0) {
+      button.title = `Export available in ${Math.ceil(remaining / 1000)}s`;
+    } else {
+      button.removeAttribute("title");
+    }
+  });
+  if (remaining > 0) {
+    exportCooldownTimer = window.setTimeout(updateExportCooldownButtons, 250);
+  } else {
+    exportCooldownTimer = null;
+  }
+}
+
+function startExportCooldown() {
+  exportCooldownUntil = Date.now() + EXPORT_COOLDOWN_MS;
+  if (exportCooldownTimer) window.clearTimeout(exportCooldownTimer);
+  updateExportCooldownButtons();
+}
+
+function downloadJsonFile(filename, data) {
+  if (Date.now() < exportCooldownUntil) return false;
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  startExportCooldown();
+  return true;
+}
+
 function exportLibraryData() {
   const payload = {};
 
@@ -214,19 +288,96 @@ function exportLibraryData() {
     }
   }
 
-  const exported = JSON.stringify(payload, null, 2);
-  const blob = new Blob([exported], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "gol-library-export.json";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  if (!downloadJsonFile("gol-library-export.json", payload)) return null;
 
   return payload;
 }
+
+function getSavedStateEntriesForExport() {
+  const states = readStoredValue("gol-board-states");
+  if (Array.isArray(states)) return states;
+  return [];
+}
+
+function exportSavedState(entry) {
+  if (!entry || !entry.state) return false;
+
+  const safeName = String(entry.name || "saved-state")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "saved-state";
+  if (!downloadJsonFile(`gol-${safeName}.json`, { "gol-board-states": [entry] })) return false;
+  closeExportMenu();
+  return true;
+}
+
+function exportCustomPattern(pattern) {
+  if (!pattern) return false;
+  const safeName = String(pattern.Name || pattern.name || "custom-pattern")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "custom-pattern";
+  return downloadJsonFile(`gol-${safeName}.json`, { customPatterns: [pattern] });
+}
+
+function exportColorPreset(preset) {
+  if (!preset) return false;
+  const safeName = String(preset.name || preset.Name || "color-preset")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "color-preset";
+  return downloadJsonFile(`gol-${safeName}.json`, { colorPresets: [preset] });
+}
+
+function updateExportMenu() {
+  const menu = document.getElementById("exportMenu");
+  if (!menu) return;
+
+  menu.innerHTML = "";
+
+  const exportAllButton = document.createElement("button");
+  exportAllButton.type = "button";
+  exportAllButton.textContent = "Export All Saved";
+  exportAllButton.onclick = exportLibraryData;
+  menu.appendChild(exportAllButton);
+
+  const states = getSavedStateEntriesForExport();
+  const label = document.createElement("div");
+  label.className = "export-menu-label";
+  label.textContent = states.length ? "Export a saved state" : "No saved states";
+  menu.appendChild(label);
+
+  states.forEach((entry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = entry.name || "Saved State";
+    button.onclick = () => exportSavedState(entry);
+    menu.appendChild(button);
+  });
+}
+
+function toggleExportMenu(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById("exportMenu");
+  if (!menu) return;
+
+  if (menu.style.display === "block") {
+    closeExportMenu();
+    return;
+  }
+
+  updateExportMenu();
+  menu.style.display = "block";
+}
+
+function closeExportMenu() {
+  const menu = document.getElementById("exportMenu");
+  if (menu) menu.style.display = "none";
+}
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".export-dropdown")) closeExportMenu();
+});
 
 function importLibraryData(data) {
   if (!data || typeof data !== "object") {
@@ -241,6 +392,9 @@ function importLibraryData(data) {
   for (const key of LIBRARY_EXPORT_KEYS) {
     if (data[key] === undefined) continue;
     const incoming = data[key];
+    if (key === "gol-board-states" || key === "customPatterns" || key === "colorPresets" || key === "heatmapColorPresets") {
+      continue;
+    }
     if (Array.isArray(incoming)) {
       writeStoredValue(key, incoming);
     } else if (key === "gol-board-states" && incoming && typeof incoming === "object") {
@@ -249,15 +403,16 @@ function importLibraryData(data) {
   }
 
   if (data.colorPresets && Array.isArray(data.colorPresets)) {
-    saveColorPresets(data.colorPresets);
+    mergeStoredItems("colorPresets", data.colorPresets, item => item.id || item.name || JSON.stringify(item));
   }
 
   if (data.heatmapColorPresets && Array.isArray(data.heatmapColorPresets)) {
-    saveHeatmapColorPresets(data.heatmapColorPresets);
+    const mergedHeatmaps = mergeStoredItems("colorPresets", data.heatmapColorPresets, item => item.id || item.name || JSON.stringify(item));
+    saveHeatmapColorPresets(mergedHeatmaps.filter(item => item.type === "heatmap" || (item.startColor && item.endColor)));
   }
 
   if (data.customPatterns && Array.isArray(data.customPatterns)) {
-    saveCustomPatterns(data.customPatterns);
+    mergeStoredItems("customPatterns", data.customPatterns, item => item["Pattern File"] || item.id || item.Name || JSON.stringify(item));
   }
 
   if (data.favorites && Array.isArray(data.favorites)) {
@@ -269,7 +424,7 @@ function importLibraryData(data) {
   }
 
   if (data["gol-board-states"] && Array.isArray(data["gol-board-states"])) {
-    writeStoredValue("gol-board-states", data["gol-board-states"]);
+    mergeSavedBoardStates(data["gol-board-states"]);
   }
 
   alert("Saved data imported successfully.");
@@ -496,6 +651,8 @@ function updateSortIndicators() {
 function applyTableHeaderForCurrentTab() {
   const headRow = document.getElementById("libraryTableHeadRow");
   if (!headRow) return;
+  const table = headRow.closest("table");
+  if (table) table.classList.toggle("color-presets", currentTab === "color-presets");
 
   if (currentTab === "color-presets") {
     headRow.innerHTML = `
@@ -504,6 +661,7 @@ function applyTableHeaderForCurrentTab() {
       <th>Colors</th>
       <th>Mode</th>
       <th>Load</th>
+      <th>Export</th>
     `;
     return;
   }
@@ -518,6 +676,7 @@ function applyTableHeaderForCurrentTab() {
     <th onclick="sortBy('Cells')" id="h-Cells">Cells</th>
     <th onclick="sortBy('BBox')" id="h-BBox">Bounding Box</th>
     <th>Load</th>
+    ${currentTab === "custom" ? "<th>Export</th>" : ""}
   `;
 }
 
@@ -550,13 +709,19 @@ async function render() {
         <td><span style="color:#8ecae6;font-family:monospace;">${isCycle ? (Array.isArray(p.stages) ? p.stages.join(" → ") : "") : `${p.startColor || ""} → ${p.endColor || ""}`}</span></td>
         <td><span style="color:#8ecae6;font-family:monospace;">${isCycle ? (p.loop ? "Loop" : "No loop") : `${p.duration || ""} gen`}</span></td>
         <td><button type="button" class="load-preset-btn">Load</button></td>
+        <td><button type="button" class="row-export-btn">Export</button></td>
       `;
       const loadButton = row.querySelector(".load-preset-btn");
       if (loadButton) {
         loadButton.addEventListener("click", () => loadPresetFromLibrary(p));
       }
+      const exportButton = row.querySelector(".row-export-btn");
+      if (exportButton) {
+        exportButton.addEventListener("click", () => exportColorPreset(p));
+      }
       body.appendChild(row);
     }
+    updateExportCooldownButtons();
     return;
   }
 
@@ -591,10 +756,23 @@ async function render() {
       <td><span class="rule">${p.Rule || ""}</span></td>
       <td class="num">${p.Cells || ""}</td>
       <td><span class="bbox">${p["Bounding Box"] || ""}</span></td>
-      <td></td>
+      <td><button type="button" class="load-pattern-btn">Load</button></td>
+      ${currentTab === "custom" ? '<td><button type="button" class="row-export-btn">Export</button></td>' : ""}
     `;
 
     body.appendChild(row);
+
+    const loadButton = row.querySelector(".load-pattern-btn");
+    if (loadButton) {
+      loadButton.addEventListener("click", () => {
+        addRecent(fileId);
+        window.location.href = link;
+      });
+    }
+    const exportButton = row.querySelector(".row-export-btn");
+    if (exportButton) {
+      exportButton.addEventListener("click", () => exportCustomPattern(p));
+    }
     
     // Render preview after adding to DOM
     const canvas = row.querySelector('canvas');
@@ -602,6 +780,7 @@ async function render() {
   }
 
   renderPagination();
+  updateExportCooldownButtons();
 }
 
 // Render pagination buttons

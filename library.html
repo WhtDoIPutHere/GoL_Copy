@@ -41,6 +41,12 @@
     table-layout: fixed; /* Prevents column jumping */
   }
 
+  table.color-presets th:nth-child(2), table.color-presets td:nth-child(2) { width: 25%; }
+  table.color-presets th:nth-child(3), table.color-presets td:nth-child(3) { width: auto; }
+  table.color-presets th:nth-child(4), table.color-presets td:nth-child(4) { width: 90px; }
+  table.color-presets th:nth-child(5), table.color-presets td:nth-child(5) { width: 80px; }
+  table.color-presets th:nth-child(6), table.color-presets td:nth-child(6) { width: 80px; }
+
   /* Table header styling with sticky positioning */
   th {
     background: #222;
@@ -167,6 +173,35 @@
     justify-content: center;
   }
 
+  .export-dropdown {
+    position: relative;
+  }
+
+  .export-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 10;
+    min-width: 190px;
+    padding: 6px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  }
+
+  .export-menu button {
+    display: block;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+  }
+
+  .export-menu-label {
+    padding: 5px 10px;
+    color: #aaa;
+    font-size: 12px;
+  }
+
   /* General button styling */
   button {
     background: #222;
@@ -202,7 +237,10 @@
   <button onclick="setTab('favorites')" id="tab-favorites">Favorites</button>
   <button onclick="setTab('custom')" id="tab-custom">Custom</button>
   <button onclick="setTab('color-presets')" id="tab-color-presets">Color Presets</button>
-  <button id="exportLibraryBtn" onclick="exportLibraryData()">Export Saved</button>
+  <div class="export-dropdown">
+    <button id="exportLibraryBtn" onclick="toggleExportMenu(event)">Export Saved</button>
+    <div id="exportMenu" class="export-menu" style="display:none;"></div>
+  </div>
   <button id="importLibraryBtn" onclick="document.getElementById('libraryImportInput').click()">Import Saved</button>
   <input id="libraryImportInput" type="file" accept=".json,application/json" style="display:none" onchange="handleLibraryImportFile(event)" />
   <button onclick="window.location.href='index.html'">Go to Game of Life</button>
