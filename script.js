@@ -204,32 +204,102 @@ function writeStoredValue(key, value) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[char]));
+}
+
+function sanitizeColorValue(value, fallback) {
+  const safe = String(value || fallback || "#000000");
+  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(safe) ? safe : fallback || "#000000";
+}
+
+function normalizeImportedObject(item, fallbackFactory) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+
+  const normalized = fallbackFactory(item);
+  if (!normalized || typeof normalized !== "object" || Array.isArray(normalized)) return null;
+  return normalized;
+}
+
+function normalizeImportedStrings(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const output = [];
+
+  for (const item of list) {
+    const value = typeof item === "string" ? item.trim() : "";
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    output.push(value);
+  }
+
+  return output;
+}
+
+function getStorageIdentity(item) {
+  if (!item || typeof item !== "object") return null;
+
+  const keys = ["id", "Pattern File", "Name", "name", "file", "title"];
+  for (const key of keys) {
+    if (item[key] !== undefined && item[key] !== null && String(item[key]).trim() !== "") {
+      return String(item[key]);
+    }
+  }
+
+  return JSON.stringify(item);
+}
+
 function mergeSavedBoardStates(incomingStates) {
   const existingStates = getSavedStateEntriesForExport();
-  const incomingById = new Map(
-    incomingStates
-      .filter(entry => entry && typeof entry === "object")
-      .map(entry => [entry.id || `imported-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, entry])
-  );
+  const normalizedIncoming = Array.isArray(incomingStates) ? incomingStates : [];
+  const incomingById = new Map();
+
+  for (const entry of normalizedIncoming) {
+    const safeEntry = normalizeImportedObject(entry, (item) => ({
+      ...item,
+      id: String(item.id || item.name || `imported-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`),
+      name: String(item.name || "Saved State").trim() || "Saved State"
+    }));
+
+    if (!safeEntry || !safeEntry.state || typeof safeEntry.state !== "object") continue;
+    incomingById.set(String(safeEntry.id), safeEntry);
+  }
+
   const merged = [
     ...incomingById.values(),
-    ...existingStates.filter(entry => !incomingById.has(entry.id))
+    ...existingStates.filter(entry => !incomingById.has(String(entry.id || entry.name || "")))
   ];
+
   writeStoredValue("gol-board-states", merged);
   return merged;
 }
 
 function mergeStoredItems(key, incomingItems, getIdentity) {
   const existingItems = readStoredArraySafe(key);
-  const incomingById = new Map(
-    incomingItems
-      .filter(item => item && typeof item === "object")
-      .map(item => [getIdentity(item), item])
-  );
+  const normalizedIncoming = Array.isArray(incomingItems) ? incomingItems : [];
+  const incomingById = new Map();
+
+  for (const item of normalizedIncoming) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const identity = getIdentity(item);
+    if (!identity || String(identity).trim() === "") continue;
+    incomingById.set(String(identity), item);
+  }
+
   const merged = [
     ...incomingById.values(),
-    ...existingItems.filter(item => !incomingById.has(getIdentity(item)))
+    ...existingItems.filter(item => {
+      const identity = getIdentity(item);
+      return identity && !incomingById.has(String(identity));
+    })
   ];
+
   writeStoredValue(key, merged);
   return merged;
 }
@@ -396,31 +466,31 @@ function importLibraryData(data) {
       continue;
     }
     if (Array.isArray(incoming)) {
-      writeStoredValue(key, incoming);
+      writeStoredValue(key, normalizeImportedStrings(incoming));
     } else if (key === "gol-board-states" && incoming && typeof incoming === "object") {
-      writeStoredValue(key, incoming);
+      writeStoredValue(key, [incoming]);
     }
   }
 
   if (data.colorPresets && Array.isArray(data.colorPresets)) {
-    mergeStoredItems("colorPresets", data.colorPresets, item => item.id || item.name || JSON.stringify(item));
+    mergeStoredItems("colorPresets", data.colorPresets, item => getStorageIdentity(item));
   }
 
   if (data.heatmapColorPresets && Array.isArray(data.heatmapColorPresets)) {
-    const mergedHeatmaps = mergeStoredItems("colorPresets", data.heatmapColorPresets, item => item.id || item.name || JSON.stringify(item));
-    saveHeatmapColorPresets(mergedHeatmaps.filter(item => item.type === "heatmap" || (item.startColor && item.endColor)));
+    const mergedHeatmaps = mergeStoredItems("colorPresets", data.heatmapColorPresets, item => getStorageIdentity(item));
+    saveHeatmapColorPresets(mergedHeatmaps.filter(item => item && typeof item === "object" && (item.type === "heatmap" || (item.startColor && item.endColor))));
   }
 
   if (data.customPatterns && Array.isArray(data.customPatterns)) {
-    mergeStoredItems("customPatterns", data.customPatterns, item => item["Pattern File"] || item.id || item.Name || JSON.stringify(item));
+    mergeStoredItems("customPatterns", data.customPatterns, item => getStorageIdentity(item));
   }
 
   if (data.favorites && Array.isArray(data.favorites)) {
-    saveFavorites(data.favorites);
+    saveFavorites(normalizeImportedStrings(data.favorites));
   }
 
   if (data.recent && Array.isArray(data.recent)) {
-    saveRecent(data.recent);
+    saveRecent(normalizeImportedStrings(data.recent));
   }
 
   if (data["gol-board-states"] && Array.isArray(data["gol-board-states"])) {
@@ -473,12 +543,12 @@ function getRecent() {
 
 // Save favorite patterns to localStorage
 function saveFavorites(list) {
-  writeStoredArray("favorites", list);
+  writeStoredArray("favorites", normalizeImportedStrings(list));
 }
 
 // Save recently viewed patterns to localStorage
 function saveRecent(list) {
-  writeStoredArray("recent", list);
+  writeStoredArray("recent", normalizeImportedStrings(list));
 }
 
 // Check if a pattern file is marked as favorite
@@ -700,14 +770,21 @@ async function render() {
     for (let p of pageItems) {
       const row = document.createElement("tr");
       const isCycle = p.type === "color-cycle" || Array.isArray(p.stages);
+      const sanitizedStages = Array.isArray(p.stages)
+        ? p.stages.map(color => sanitizeColorValue(color, "#9ddc15"))
+        : ["#9ddc15", "#ffd539", "#f58f20", "#ca204d"];
+      const safeStart = sanitizeColorValue(p.startColor, "#9ddc15");
+      const safeEnd = sanitizeColorValue(p.endColor, "#ca204d");
       const gradient = isCycle
-        ? `linear-gradient(90deg, ${Array.isArray(p.stages) ? p.stages.map(c => c).join(", ") : "#9ddc15, #ffd539, #f58f20, #ca204d"})`
-        : `linear-gradient(90deg, ${p.startColor || "#9ddc15"}, ${p.endColor || "#ca204d"})`;
+        ? `linear-gradient(90deg, ${sanitizedStages.join(", ")})`
+        : `linear-gradient(90deg, ${safeStart}, ${safeEnd})`;
+      const stageText = isCycle ? sanitizedStages.join(" → ") : `${safeStart} → ${safeEnd}`;
+      const modeText = isCycle ? (p.loop ? "Loop" : "No loop") : `${p.duration || ""} gen`;
       row.innerHTML = `
-        <td><div style="width:70px;height:50px;border:1px solid #333;background:${gradient};"></div></td>
-        <td>${p.name || p.Name || ""}</td>
-        <td><span style="color:#8ecae6;font-family:monospace;">${isCycle ? (Array.isArray(p.stages) ? p.stages.join(" → ") : "") : `${p.startColor || ""} → ${p.endColor || ""}`}</span></td>
-        <td><span style="color:#8ecae6;font-family:monospace;">${isCycle ? (p.loop ? "Loop" : "No loop") : `${p.duration || ""} gen`}</span></td>
+        <td><div style="width:70px;height:50px;border:1px solid #333;background:${escapeHtml(gradient)};"></div></td>
+        <td>${escapeHtml(p.name || p.Name || "")}</td>
+        <td><span style="color:#8ecae6;font-family:monospace;">${escapeHtml(stageText)}</span></td>
+        <td><span style="color:#8ecae6;font-family:monospace;">${escapeHtml(modeText)}</span></td>
         <td><button type="button" class="load-preset-btn">Load</button></td>
         <td><button type="button" class="row-export-btn">Export</button></td>
       `;
@@ -735,27 +812,24 @@ async function render() {
     row.innerHTML = `
       <td><canvas width="70" height="50" style="border: 1px solid #333;"></canvas></td>
       <td>
-        <span onclick="toggleFavorite('${fileId}')"
-              style="cursor:pointer;">
+        <span onclick="toggleFavorite(${JSON.stringify(fileId)})" style="cursor:pointer;">
           ${isFavorite(fileId) ? "⭐" : "☆"}
         </span>
       </td>
       <td>
-        <a href="${link}"
-           onclick="addRecent('${fileId}')"
-           style="color:#8ecae6; text-decoration: underline;">
-          ${p.Name || ""}
+        <a href="${link}" onclick="addRecent(${JSON.stringify(fileId)})" style="color:#8ecae6; text-decoration: underline;">
+          ${escapeHtml(p.Name || "")}
         </a>
       </td>
-      <td class="desc" title="${p.Description || " "}">
-        ${p.Description || " "}
+      <td class="desc" title="${escapeHtml(p.Description || " ")}">
+        ${escapeHtml(p.Description || " ")}
       </td>
       <td class="rle">
         <a href="${isCustom ? `rle.html?custom=${encodeURIComponent(fileId.slice(7))}` : `rle.html?file=${encodeURIComponent(fileId)}`}" class="rle-link">View</a>
       </td>
-      <td><span class="rule">${p.Rule || ""}</span></td>
-      <td class="num">${p.Cells || ""}</td>
-      <td><span class="bbox">${p["Bounding Box"] || ""}</span></td>
+      <td><span class="rule">${escapeHtml(p.Rule || "")}</span></td>
+      <td class="num">${escapeHtml(p.Cells || "")}</td>
+      <td><span class="bbox">${escapeHtml(p["Bounding Box"] || "")}</span></td>
       <td><button type="button" class="load-pattern-btn">Load</button></td>
       ${currentTab === "custom" ? '<td><button type="button" class="row-export-btn">Export</button></td>' : ""}
     `;

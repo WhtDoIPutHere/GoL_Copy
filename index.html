@@ -1149,17 +1149,201 @@ async function loadPatternFromCustom(customId) {
   updateStats();
 }
 
-async function loadPatternFromFile(fileName) {
+function normalizePatternLookup(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.rle$/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function findPatternByDisplayName(userInput) {
+  const query = normalizePatternLookup(userInput);
+  if (!query) return null;
+
   try {
-    const response = await fetch(`patterns/${fileName}`);
+    const response = await fetch("patterns.json");
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const entries = Array.isArray(data) ? data : [];
+    let bestMatch = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    for (const item of entries) {
+      if (!item || typeof item !== "object") continue;
+      const name = item.Name || item.name || "";
+      const file = item["Pattern File"] || item.file || "";
+      if (!file) continue;
+
+      const normalizedName = normalizePatternLookup(name);
+      const fileNameNormalized = normalizePatternLookup(file);
+
+      if (!normalizedName) continue;
+
+      if (normalizedName === query || fileNameNormalized === query) {
+        return { name, file };
+      }
+
+      let score = 0;
+      if (normalizedName.includes(query)) score += 1;
+      if (query.includes(normalizedName)) score += 0.5;
+      if (normalizedName.startsWith(query) || query.startsWith(normalizedName)) score += 0.25;
+
+      if (score > 0 && score < bestScore) {
+        bestScore = score;
+        bestMatch = { name, file };
+      }
+    }
+
+    return bestMatch;
+  } catch (error) {
+    return null;
+  }
+}
+
+function getPatternLookupCandidates(fileName) {
+  const raw = String(fileName || "").trim();
+  if (!raw) return [];
+
+  const withoutExt = raw.replace(/\.rle$/i, "");
+  const variants = new Set();
+
+  const addVariant = value => {
+    if (!value) return;
+    variants.add(value);
+    variants.add(value.toLowerCase());
+    variants.add(value.toUpperCase());
+  };
+
+  addVariant(raw);
+  addVariant(withoutExt);
+  addVariant(`${withoutExt}.rle`);
+  addVariant(`${withoutExt}.RLE`);
+  addVariant(withoutExt.replace(/\s+/g, ""));
+  addVariant(withoutExt.replace(/\s+/g, "-"));
+  addVariant(withoutExt.replace(/\s+/g, "_"));
+  addVariant(withoutExt.replace(/[^a-z0-9]+/gi, "").toLowerCase());
+
+  const candidates = Array.from(variants).filter(Boolean);
+  const uniqueCandidates = [];
+  const seen = new Set();
+
+  for (const candidate of candidates) {
+    const finalName = candidate.endsWith(".rle") || candidate.endsWith(".RLE") ? candidate : `${candidate}.rle`;
+    const key = finalName.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueCandidates.push(finalName);
+    }
+  }
+
+  return uniqueCandidates;
+}
+
+function normalizePatternLookup(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.rle$/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function getPatternMatchCandidates(userInput, limit = 5) {
+  const query = normalizePatternLookup(userInput);
+  if (!query) return [];
+
+  try {
+    const response = await fetch("patterns.json");
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const entries = Array.isArray(data) ? data : [];
+    const ranked = [];
+
+    for (const item of entries) {
+      if (!item || typeof item !== "object") continue;
+      const name = item.Name || item.name || "";
+      const file = item["Pattern File"] || item.file || "";
+      if (!file) continue;
+
+      const normalizedName = normalizePatternLookup(name);
+      const fileNameNormalized = normalizePatternLookup(file);
+
+      if (!normalizedName) continue;
+      if (normalizedName === query || fileNameNormalized === query) {
+        return [{ name, file, score: 0 }];
+      }
+
+      let score = 0;
+      if (normalizedName.includes(query)) score += 3;
+      if (query.includes(normalizedName)) score += 2;
+      if (normalizedName.startsWith(query) || query.startsWith(normalizedName)) score += 1;
+
+      const sharedWords = query.split(" ").filter(Boolean).filter(word => normalizedName.includes(word));
+      if (sharedWords.length) score += sharedWords.length;
+
+      if (score > 0) {
+        ranked.push({ name, file, score });
+      }
+    }
+
+    return ranked
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+      .slice(0, limit);
+  } catch (error) {
+    return [];
+  }
+}
+
+function resolvePendingPatternChoice(input) {
+  if (!pendingPatternChoices.length) return null;
+
+  const trimmed = String(input || "").trim();
+  if (!trimmed) return null;
+
+  const tokenized = trimmed.split(/\s+/);
+  let candidateText = trimmed;
+  if (tokenized.length > 1 && tokenized[0].toLowerCase() === "load") {
+    candidateText = tokenized.slice(1).join(" ");
+  }
+
+  const numericChoice = Number(candidateText);
+  if (Number.isInteger(numericChoice) && numericChoice >= 1 && numericChoice <= pendingPatternChoices.length) {
+    return pendingPatternChoices[numericChoice - 1];
+  }
+
+  const normalizedText = normalizePatternLookup(candidateText);
+  const exactMatch = pendingPatternChoices.find(match =>
+    normalizePatternLookup(match.name) === normalizedText ||
+    normalizePatternLookup(match.file) === normalizedText
+  );
+
+  if (exactMatch) return exactMatch;
+
+  const partialMatch = pendingPatternChoices.find(match =>
+    normalizePatternLookup(match.name).includes(normalizedText) ||
+    normalizePatternLookup(match.file).includes(normalizedText)
+  );
+
+  return partialMatch || null;
+}
+
+async function tryLoadPatternCandidate(candidate) {
+  try {
+    const response = await fetch(`patterns/${candidate}`);
     if (!response.ok) {
-      throw new Error(`Failed to load pattern file: ${response.status} ${response.statusText}`);
+      return { ok: false, error: new Error(`Failed to load pattern file: ${response.status} ${response.statusText}`) };
     }
 
     const rleText = await response.text();
     const cells = parseRLE(rleText);
     if (cells.length === 0) {
-      throw new Error("No cells found in RLE file");
+      return { ok: false, error: new Error("No cells found in RLE file") };
     }
 
     grid.clear();
@@ -1176,7 +1360,7 @@ async function loadPatternFromFile(fileName) {
     }
 
     fitPatternToScreen(cells);
-    log(`Loaded pattern from file: ${fileName} (${cells.length} cells)`, "action");
+    log(`Loaded pattern from file: ${candidate} (${cells.length} cells)`, "action");
     log("Auto fit shape to screen", "system");
 
     updateGridButton();
@@ -1185,10 +1369,39 @@ async function loadPatternFromFile(fileName) {
     updateColorButton();
     updateHeatmapButton();
     updateStats();
-  } catch (e) {
-    console.error("Error loading pattern file:", e);
-    alert("Error loading pattern file: " + e.message);
+    return { ok: true, candidate, cells };
+  } catch (error) {
+    return { ok: false, error };
   }
+}
+
+async function loadPatternFromFile(fileName) {
+  const typedName = String(fileName || "").trim();
+  if (!typedName) {
+    log("Usage: load <filename.rle>", "warn");
+    return;
+  }
+
+  const directCandidates = getPatternLookupCandidates(typedName);
+  for (const candidate of directCandidates) {
+    const result = await tryLoadPatternCandidate(candidate);
+    if (result.ok) return;
+  }
+
+  const matches = await getPatternMatchCandidates(typedName, 5);
+  if (matches.length) {
+    pendingPatternChoices = matches;
+    log(`Top matches for "${typedName}":`, "warn");
+    matches.forEach((match, index) => {
+      log(`${index + 1}. ${match.name} — ${match.file}`, "system");
+    });
+    log('Choose one by typing "load 1" through "load 5" or by exact pattern name.', 'system');
+    return;
+  }
+
+  const fallbackError = new Error(`Pattern not found: "${typedName}"`);
+  console.error("Error loading pattern file:", fallbackError);
+  alert(`Error loading pattern file: ${fallbackError.message}`);
 }
 
 // Toggle UI panel visibility
@@ -4817,6 +5030,7 @@ const termInput = document.getElementById("terminalInput");
 
 let commandHistory = []; // History of entered commands
 let historyIndex = -1; // Current position in command history
+let pendingPatternChoices = []; // Pattern name matches awaiting user selection
 
 // Handle terminal input key events
 termInput.addEventListener("keydown", e => {
@@ -4932,6 +5146,28 @@ window.addEventListener('keydown', e => {
 })();
 
 function runCommand(cmd) {
+  if (pendingPatternChoices.length) {
+    const selection = resolvePendingPatternChoice(cmd);
+    if (selection) {
+      pendingPatternChoices = [];
+      const result = tryLoadPatternCandidate(selection.file);
+      result.then(res => {
+        if (!res.ok) {
+          log(`Failed to load selected pattern: ${selection.file}`, "error");
+        }
+      });
+      return;
+    }
+
+    if (cmd.trim().toLowerCase() === "cancel") {
+      pendingPatternChoices = [];
+      log("Pattern selection cancelled.", "system");
+      return;
+    }
+
+    pendingPatternChoices = [];
+  }
+
   const args = cmd.trim().split(/\s+/);
   const base = args[0].toLowerCase();
 
@@ -5022,13 +5258,15 @@ function runCommand(cmd) {
       }
       break;
 
-    case "load":
-      if (args[1]) {
-        loadPatternFromFile(args[1]);
+    case "load": {
+      const patternArg = cmd.slice(base.length).trim();
+      if (patternArg) {
+        loadPatternFromFile(patternArg);
       } else {
         log("Usage: load <filename.rle>");
       }
       break;
+    }
 
     case "stats":
       log(`Gen: ${generation} | Cells: ${formatLivingCount(grid.size)}`);
