@@ -654,6 +654,7 @@
         <div class="shortcut-item"><span>Shift + Drag</span> <span>Straight Lines</span></div>
         <div class="shortcut-item"><span>Ctrl + Z</span> <span>Undo</span></div>
         <div class="shortcut-item"><span>Ctrl + Y</span> <span>Redo</span></div>
+        <div class="shortcut-item"><span>Tab</span> <span>Autocomplete command</span></div>
         <div style="font-weight: bold; color: lime; margin: 6px 0;">Terminal Commands:</div>
         <div class="shortcut-item"><span>play</span> <span>Start simulation</span></div>
         <div class="shortcut-item"><span>pause</span> <span>Pause simulation</span></div>
@@ -663,6 +664,8 @@
         <div class="shortcut-item"><span>brush &lt;X&gt;</span> <span>Set brush size</span></div>
         <div class="shortcut-item"><span>rule &lt;B3/S23&gt;</span> <span>Set rule string</span></div>
         <div class="shortcut-item"><span>load &lt;file.rle&gt;</span> <span>Load pattern file</span></div>
+        <div class="shortcut-item"><span>info &lt;pattern&gt;</span> <span>Show pattern details</span></div>
+        <div class="shortcut-item"><span>y / n</span> <span>Confirm or cancel</span></div>
         <div class="shortcut-item"><span>stats</span> <span>Show generation & cell count</span></div>
         <div class="shortcut-item"><span>clear</span> <span>Clear terminal output</span></div>
         <div class="shortcut-item"><span>help</span> <span>Show all commands</span></div>
@@ -1243,16 +1246,6 @@ function getPatternLookupCandidates(fileName) {
   return uniqueCandidates;
 }
 
-function normalizePatternLookup(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\.rle$/i, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 async function getPatternMatchCandidates(userInput, limit = 5) {
   const query = normalizePatternLookup(userInput);
   if (!query) return [];
@@ -1333,7 +1326,38 @@ function resolvePendingPatternChoice(input) {
   return partialMatch || null;
 }
 
-async function tryLoadPatternCandidate(candidate) {
+function applyLoadedPattern(candidate, cells) {
+  grid.clear();
+  cellAges.clear();
+  generation = 0;
+  populationHistory = [];
+  updateStats();
+  updateGraphStats();
+
+  for (let [dx, dy] of cells) {
+    const k = key(dx, dy);
+    grid.add(k);
+    cellAges.set(k, 0);
+  }
+
+  fitPatternToScreen(cells);
+  log(`Loaded pattern from file: ${candidate} (${cells.length} cells)`, "action");
+  log("Auto fit shape to screen", "system");
+
+  updateGridButton();
+  updateFullCellButton();
+  updateEraseButton();
+  updateColorButton();
+  updateHeatmapButton();
+  updateStats();
+}
+
+async function tryLoadPatternCandidate(candidate, confirmed = false) {
+  if (patternLoadInProgress) {
+    return { ok: false, error: new Error("Another pattern load is already in progress") };
+  }
+
+  patternLoadInProgress = true;
   try {
     const response = await fetch(`patterns/${candidate}`);
     if (!response.ok) {
@@ -1346,32 +1370,58 @@ async function tryLoadPatternCandidate(candidate) {
       return { ok: false, error: new Error("No cells found in RLE file") };
     }
 
-    grid.clear();
-    cellAges.clear();
-    generation = 0;
-    populationHistory = [];
-    updateStats();
-    updateGraphStats();
-
-    for (let [dx, dy] of cells) {
-      const k = key(dx, dy);
-      grid.add(k);
-      cellAges.set(k, 0);
+    if (cells.length >= LARGE_PATTERN_CONFIRMATION_THRESHOLD && !confirmed) {
+      pendingLargePatternLoad = { candidate, cells };
+      log(`"${candidate}" contains ${cells.length.toLocaleString()} cells. Load it? Type y to continue or n to cancel.`, "warn");
+      return { ok: true, pendingConfirmation: true, candidate, cells };
     }
 
-    fitPatternToScreen(cells);
-    log(`Loaded pattern from file: ${candidate} (${cells.length} cells)`, "action");
-    log("Auto fit shape to screen", "system");
-
-    updateGridButton();
-    updateFullCellButton();
-    updateEraseButton();
-    updateColorButton();
-    updateHeatmapButton();
-    updateStats();
+    pendingLargePatternLoad = null;
+    applyLoadedPattern(candidate, cells);
     return { ok: true, candidate, cells };
   } catch (error) {
     return { ok: false, error };
+  } finally {
+    patternLoadInProgress = false;
+  }
+}
+
+async function showPatternInfo(userInput) {
+  const requestId = ++terminalInfoRequestId;
+  const matches = await getPatternMatchCandidates(userInput, 5);
+  if (requestId !== terminalInfoRequestId) return;
+  if (!matches.length) {
+    log(`No pattern found for "${userInput}".`, "warn");
+    return;
+  }
+
+  const match = matches[0];
+  if (matches.length > 1 && normalizePatternLookup(match.name) !== normalizePatternLookup(userInput)) {
+    log(`Top matches for "${userInput}":`, "warn");
+    matches.forEach((item, index) => log(`${index + 1}. ${item.name} — ${item.file}`, "system"));
+    log("Use info <exact pattern name> for details.", "system");
+    return;
+  }
+
+  try {
+    const [patternResponse, catalogResponse] = await Promise.all([
+      fetch(`patterns/${match.file}`),
+      fetch("patterns.json")
+    ]);
+    if (requestId !== terminalInfoRequestId) return;
+    if (!patternResponse.ok || !catalogResponse.ok) throw new Error("Pattern metadata could not be loaded");
+
+    const cells = parseRLE(await patternResponse.text());
+    const catalog = await catalogResponse.json();
+    const item = catalog.find(entry => entry && entry["Pattern File"] === match.file) || {};
+
+    log(`Pattern: ${match.name}`, "action");
+    log(`File: ${match.file}`, "system");
+    log(`Cells: ${cells.length.toLocaleString()} | Bounding box: ${item["Bounding Box"] || "unknown"}`, "system");
+    log(`Rule: ${item.Rule || "B3/S23"}`, "system");
+    if (item.Description) log(`Description: ${item.Description}`, "system");
+  } catch (error) {
+    log(`Could not read info for ${match.file}: ${error.message}`, "error");
   }
 }
 
@@ -5031,9 +5081,41 @@ const termInput = document.getElementById("terminalInput");
 let commandHistory = []; // History of entered commands
 let historyIndex = -1; // Current position in command history
 let pendingPatternChoices = []; // Pattern name matches awaiting user selection
+let pendingLargePatternLoad = null; // Large pattern waiting for confirmation
+let patternLoadInProgress = false;
+let terminalInfoRequestId = 0;
+const LARGE_PATTERN_CONFIRMATION_THRESHOLD = 10000;
+const TERMINAL_COMMANDS = ["play", "pause", "step", "ff", "speed", "brush", "rule", "load", "info", "stats", "clear", "help"];
+
+async function autocompleteTerminalInput() {
+  const originalValue = termInput.value;
+  const value = originalValue.trim();
+  if (!value) return;
+
+  const parts = value.split(/\s+/);
+  const base = parts[0].toLowerCase();
+  if (parts.length === 1) {
+    const command = TERMINAL_COMMANDS.find(item => item.startsWith(base));
+    if (command) termInput.value = `${command} `;
+    return;
+  }
+
+  if (base !== "load" && base !== "info") return;
+
+  const matches = await getPatternMatchCandidates(parts.slice(1).join(" "), 5);
+  if (matches.length && termInput.value === originalValue) {
+    termInput.value = `${base} ${matches[0].name}`;
+  }
+}
 
 // Handle terminal input key events
 termInput.addEventListener("keydown", e => {
+
+  if (e.key === "Tab") {
+    e.preventDefault();
+    autocompleteTerminalInput();
+    return;
+  }
 
   // ENTER → run command
   if (e.key === "Enter") {
@@ -5146,6 +5228,27 @@ window.addEventListener('keydown', e => {
 })();
 
 function runCommand(cmd) {
+  if (patternLoadInProgress) {
+    log("A pattern load is still in progress. Please wait for it to finish.", "warn");
+    return;
+  }
+
+  if (pendingLargePatternLoad) {
+    const answer = cmd.trim().toLowerCase();
+    const pending = pendingLargePatternLoad;
+
+    if (answer === "y" || answer === "yes") {
+      pendingLargePatternLoad = null;
+      applyLoadedPattern(pending.candidate, pending.cells);
+    } else if (answer === "n" || answer === "no" || answer === "cancel") {
+      pendingLargePatternLoad = null;
+      log("Large pattern load cancelled.", "system");
+    } else {
+      log("Please answer y to load the pattern or n to cancel.", "warn");
+    }
+    return;
+  }
+
   if (pendingPatternChoices.length) {
     const selection = resolvePendingPatternChoice(cmd);
     if (selection) {
@@ -5268,6 +5371,16 @@ function runCommand(cmd) {
       break;
     }
 
+    case "info": {
+      const patternArg = cmd.slice(base.length).trim();
+      if (patternArg) {
+        showPatternInfo(patternArg);
+      } else {
+        log("Usage: info <pattern name or filename>");
+      }
+      break;
+    }
+
     case "stats":
       log(`Gen: ${generation} | Cells: ${formatLivingCount(grid.size)}`);
       break;
@@ -5278,6 +5391,9 @@ function runCommand(cmd) {
       log("speed X, brush X");
       log("rule B3/S23");
       log("load filename.rle");
+      log("info pattern name");
+      log("Tab autocompletes commands and pattern names");
+      log("Large patterns ask for y/n confirmation before loading");
       log("stats, clear");
       break;
 
