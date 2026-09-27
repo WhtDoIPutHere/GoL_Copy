@@ -1,118 +1,89 @@
-# Conway’s Game of Life – Advanced Simulator & Pattern Ecosystem
+# Conway's Game of Life
 
-A fully interactive Conway’s Game of Life engine featuring real-time simulation, custom rule editing, RLE import/export, and a built-in pattern creation tool.
+A browser-based Game of Life simulator with editable rules, drawing and selection tools, RLE patterns, saved boards, visualization options, and a searchable pattern library.
 
----
+## Pages and files
 
-## 🧠 Overview
+- `index.html` - Main simulator and terminal.
+- `library.html` - Searchable pattern database, favorites, recent and custom patterns, saved color presets, and library import/export.
+- `rle.html` - RLE viewer for database and custom patterns.
+- `patterns/` - RLE files used by the simulator and library.
+- `patterns.json` - Pattern catalog metadata, including display names, filenames, rules, cell counts, and bounding boxes.
+- `patterns.js` - Small set of built-in brush patterns loaded into the simulator.
+- `script.js` - Pattern library and saved-data behavior for `library.html`.
 
-This project is a complete Game of Life ecosystem made of two tools:
+## Run locally
 
-### 🧬 Simulator (`gol.html`)
-A high-performance cellular automaton engine with advanced visualization and control features.
+The pages fetch JSON and RLE files, so run them through a local web server instead of opening `index.html` directly with a `file://` URL.
 
-### 🧩 Pattern Builder (`goladder.html`)
-A visual editor for creating, saving, and exporting custom Game of Life patterns.
+From the project folder, start Python's static server:
 
-### 📦 Pattern Library (`patterns.js`)
-A simple registry of RLE-based patterns used by the simulator.
+```powershell
+py -m http.server 8000
+```
 
----
+Then open <http://localhost:8000> in a browser. If the `py` launcher is unavailable but Python is installed, use:
 
-## 🚀 Simulator Features (`gol.html`)
+```powershell
+python -m http.server 8000
+```
 
-### Simulation Engine
-- Conway’s Game of Life (customizable rules)
-- Rule editor (B/S format UI)
-- Efficient Set-based grid system
-- Cell aging system
+Stop the server with `Ctrl+C` in the terminal running it.
 
-### Visualization Modes
-- Grid toggle
-- Heatmap mode (age-based coloring)
-- Cell color mode
-- Ghost trail rendering
-- Full-cell rendering mode
+No package installation or build step is currently required.
 
-### Analysis Tools
-- Population graph
-- Peak / low / average tracking
-- Growth slope calculation
-- Stability detection (variance-based)
+## Simulator
 
-### Navigation & View
-- Zoom in/out (mouse wheel)
-- Pan (drag / shift-drag constraints)
-- Minimap with click-to-jump
-- Reset view option
+The simulator supports:
 
-### Pattern System
-- Built-in patterns from `patterns.js`
-- RLE import (paste or URL)
-- Pattern rotation (0°, 90°, 180°, 270°)
-- Pattern ghost preview
+- Conway's Game of Life and editable birth/survival rules, with rule presets.
+- Drawing, erasing, brush sizing, straight-line drawing, selection, wand selection, and clipboard operations.
+- Pattern rotation and mirroring, random-cell mode, RLE import, and pattern previews.
+- Grid, age colors, heatmap, ghost preview, minimap, and population graphs/statistics.
+- Undo and redo, saved custom patterns, and saved board states.
+- Settings for inactive-tab pausing, static-board pausing, graph scales, count formatting, and color presets.
 
-### Chaos Mode
-- Random cell generation with density control
+Open the **Shortcuts** menu in the simulator for the full current keyboard shortcut list.
 
----
+## Terminal commands
 
-## 🎮 Controls
+Enter commands in the terminal at the bottom of the simulator:
 
-### Simulation
-- `Space` → Play / Pause
-- `Step` → Advance one generation
-- `Ctrl + Z` → Undo
-- `Ctrl + Y` → Redo
+| Command | Action |
+| --- | --- |
+| `play` / `pause` | Start or pause the simulation |
+| `step` | Advance one generation |
+| `ff <steps>` | Advance multiple generations |
+| `speed <number>` | Set simulation speed |
+| `brush <number>` | Set brush size |
+| `rule B3/S23` | Set a rule string |
+| `load <filename.rle>` | Load a pattern by filename |
+| `load <pattern name>` | Search pattern names if no matching file is found |
+| `info <pattern name>` | Show the pattern filename, cell count, bounding box, rule, and description |
+| `stats` | Show generation and live-cell count |
+| `clear` | Clear terminal output |
+| `help` | Show terminal command help |
 
-### Editing
-- Left click → Draw
-- Right click → Pan
-- Mouse wheel → Zoom
-- `[ / ]` → Brush size
+When a name search has multiple results, the terminal lists up to five choices. Enter a choice number or pattern name to select one. Patterns with 10,000 or more cells ask for `y` to load or `n` to cancel. Press `Tab` in the terminal to autocomplete a command or the first matching pattern name.
 
-### Modes
-- `E` → Toggle erase mode
-- `F` → Full cell mode
-- `G` → Toggle grid
-- `C` → Cycle colors / heatmap
-- `T` → Toggle ghost mode
-- `R` → Toggle rules panel
-- `H` → Hide UI
+Examples:
 
-### Pattern Tools
-- `V` → Rotate pattern
-- `P` → Toggle ghost preview
+```text
+load glider.rle
+load stamp
+info glider
+```
 
----
+## Pattern library and saved data
 
-## 🧩 Pattern Builder (`goladder.html`)
+Open **Pattern Database** in the simulator to browse and search catalog patterns. The library also provides tabs for recent, favorite, custom patterns, and color presets. Custom patterns, favorites, recent items, board states, and presets are stored in the browser's local storage. Use **Export Saved** and **Import Saved** in the library to back up or transfer supported saved data.
 
-A dedicated tool for designing patterns visually.
+The RLE viewer can display a catalog pattern or a saved custom pattern and copy its RLE text.
 
-### Features
-- Click-to-draw grid editor
-- Erase mode
-- Undo / redo system
-- RLE import
-- Pattern metadata:
-  - codename (internal key)
-  - viewname (display name)
-  - hovername (tooltip)
-- Pattern list manager
-- Export system:
-  - HTML dropdown format
-  - JavaScript object format
+## RLE format
 
----
+The app uses standard run-length encoded cell patterns. The `o` symbol denotes a live cell, `b` a dead cell, `$` starts a new row, and `!` ends the pattern. For example, the built-in glider is:
 
-## 📦 Pattern System (`patterns.js`)
-
-Example structure:
-
-```js
-window.PATTERN_DATA = {
-  glider: "bo$2bo$3o!",
-  blinker: "3o!",
-  switchengine: "2o$2o2$3bo$3bo$4b3o!"
-};
+```text
+bo$2bo$3o!
+```

@@ -642,6 +642,8 @@
         <div class="shortcut-item"><span>Ctrl + Shift + M</span> <span>Ortho Mirror Line</span></div>
         <div class="shortcut-item"><span>D</span> <span>Deselect</span></div>
         <div class="shortcut-item"><span>Ctrl + Drag</span> <span>Select Area</span></div>
+        <div class="shortcut-item"><span>Ctrl + Shift + Drag</span> <span>Select Square</span></div>
+        <div class="shortcut-item"><span>Ctrl + Alt + Drag</span> <span>Subtract Area from Selection</span></div>
         <div class="shortcut-item"><span>Ctrl + A</span> <span>Select All</span></div>
         <div class="shortcut-item"><span>W</span> <span>Toggle Wand Mode</span></div>
         <div class="shortcut-item"><span>Click (Wand)</span> <span>Replace Selection</span></div>
@@ -1011,9 +1013,12 @@ let mirrorLineStart = null; // Starting point for mirror line placement
 let mirrorLinePlacing = false; // Whether user is currently dragging a mirror line
 let mirrorLineConstrained = false; // Whether the current mirror line is snapped to 45° increments
 let selectionActive = false; // Whether user is currently dragging a clipboard selection
+let squareSelectionActive = false; // Whether the current Ctrl+Shift drag is constrained to a square
+let subtractSelectionActive = false; // Whether the current Ctrl+Alt drag removes an area from the selection
 let selectionStart = null; // Selection start coordinates
 let selectionEnd = null; // Selection end coordinates
 let selectionRect = null; // Completed selection rectangle
+let selectionRegions = []; // Non-overlapping rectangular regions that make up an area selection
 let selectedCells = new Set(); // Current selected cell keys
 let clipboardHistory = []; // Last copied/cut shapes
 let savedBoardStates = getSavedBoardStateEntries(); // Saved board states for later loading
@@ -1602,6 +1607,7 @@ function applyBoardState(state) {
   survivalSet = new Set(state.survivalSet || []);
 
   selectionRect = null;
+  selectionRegions = [];
   selectedCells = new Set();
   undoStack = [];
   redoStack = [];
@@ -1953,8 +1959,82 @@ function getSelectionBounds(){
   return { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
 }
 
+function createSelectionRect(x1, y1, x2, y2){
+  return { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+}
+
+function isPointInSelectionRect(x, y, rect){
+  return x >= rect.x1 && x <= rect.x2 && y >= rect.y1 && y <= rect.y2;
+}
+
+function isCellInSelectionArea(x, y){
+  return selectionRegions.some(region => isPointInSelectionRect(x, y, region));
+}
+
+function getUncoveredSelectionEdgeSegments(start, end, coveredSegments){
+  let segments = [[start, end]];
+  for(const [coverStart, coverEnd] of coveredSegments){
+    segments = segments.flatMap(([segmentStart, segmentEnd]) => {
+      if(coverEnd <= segmentStart || coverStart >= segmentEnd) return [[segmentStart, segmentEnd]];
+      const remaining = [];
+      if(coverStart > segmentStart) remaining.push([segmentStart, Math.min(coverStart, segmentEnd)]);
+      if(coverEnd < segmentEnd) remaining.push([Math.max(coverEnd, segmentStart), segmentEnd]);
+      return remaining.filter(([from, to]) => to > from);
+    });
+  }
+  return segments;
+}
+
+function getSelectionBoundarySegments(){
+  const edges = [];
+  for(const region of selectionRegions){
+    const above = selectionRegions
+      .filter(other => other !== region && other.y2 + 1 === region.y1)
+      .map(other => [other.x1, other.x2 + 1]);
+    const below = selectionRegions
+      .filter(other => other !== region && other.y1 === region.y2 + 1)
+      .map(other => [other.x1, other.x2 + 1]);
+    const left = selectionRegions
+      .filter(other => other !== region && other.x2 + 1 === region.x1)
+      .map(other => [other.y1, other.y2 + 1]);
+    const right = selectionRegions
+      .filter(other => other !== region && other.x1 === region.x2 + 1)
+      .map(other => [other.y1, other.y2 + 1]);
+
+    for(const [x1, x2] of getUncoveredSelectionEdgeSegments(region.x1, region.x2 + 1, above)) {
+      edges.push([x1, region.y1, x2, region.y1]);
+    }
+    for(const [x1, x2] of getUncoveredSelectionEdgeSegments(region.x1, region.x2 + 1, below)) {
+      edges.push([x1, region.y2 + 1, x2, region.y2 + 1]);
+    }
+    for(const [y1, y2] of getUncoveredSelectionEdgeSegments(region.y1, region.y2 + 1, left)) {
+      edges.push([region.x1, y1, region.x1, y2]);
+    }
+    for(const [y1, y2] of getUncoveredSelectionEdgeSegments(region.y1, region.y2 + 1, right)) {
+      edges.push([region.x2 + 1, y1, region.x2 + 1, y2]);
+    }
+  }
+  return edges;
+}
+
+function subtractSelectionRect(rect, cut){
+  const ix1 = Math.max(rect.x1, cut.x1);
+  const iy1 = Math.max(rect.y1, cut.y1);
+  const ix2 = Math.min(rect.x2, cut.x2);
+  const iy2 = Math.min(rect.y2, cut.y2);
+
+  if(ix1 > ix2 || iy1 > iy2) return [rect];
+
+  const remaining = [];
+  if(rect.y1 < iy1) remaining.push(createSelectionRect(rect.x1, rect.y1, rect.x2, iy1 - 1));
+  if(iy2 < rect.y2) remaining.push(createSelectionRect(rect.x1, iy2 + 1, rect.x2, rect.y2));
+  if(rect.x1 < ix1) remaining.push(createSelectionRect(rect.x1, iy1, ix1 - 1, iy2));
+  if(ix2 < rect.x2) remaining.push(createSelectionRect(ix2 + 1, iy1, rect.x2, iy2));
+  return remaining;
+}
+
 function updateSelectionRectFromCells(){
-  if(selectedCells.size === 0){
+  if(selectedCells.size === 0 && selectionRegions.length === 0){
     selectionStart = null;
     selectionEnd = null;
     selectionRect = null;
@@ -1967,6 +2047,13 @@ function updateSelectionRectFromCells(){
   let x2 = -Infinity;
   let y2 = -Infinity;
 
+  for(const region of selectionRegions){
+    x1 = Math.min(x1, region.x1);
+    y1 = Math.min(y1, region.y1);
+    x2 = Math.max(x2, region.x2);
+    y2 = Math.max(y2, region.y2);
+  }
+
   for(const keyStr of selectedCells){
     const [x, y] = parse(keyStr);
     x1 = Math.min(x1, x);
@@ -1977,7 +2064,7 @@ function updateSelectionRectFromCells(){
 
   selectionStart = [x1, y1];
   selectionEnd = [x2, y2];
-  selectionRect = { x1, y1, x2, y2, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+  selectionRect = createSelectionRect(x1, y1, x2, y2);
   updateDataPanel();
 }
 
@@ -1986,7 +2073,10 @@ function clearSelection(){
   selectionStart = null;
   selectionEnd = null;
   selectionActive = false;
+  squareSelectionActive = false;
+  subtractSelectionActive = false;
   selectionRect = null;
+  selectionRegions = [];
   selectedCells.clear();
 }
 
@@ -1994,7 +2084,12 @@ function clearSelectionContents() {
   const bounds = selectionActive ? getSelectionBounds() : selectionRect;
   const cellsToClear = [];
 
-  if (selectedCells.size > 0) {
+  if(selectionRegions.length){
+    for(const keyStr of grid){
+      const [x, y] = parse(keyStr);
+      if(isCellInSelectionArea(x, y)) cellsToClear.push(keyStr);
+    }
+  } else if (selectedCells.size > 0) {
     for (const keyStr of selectedCells) {
       cellsToClear.push(keyStr);
     }
@@ -2059,6 +2154,7 @@ function selectAllCells(){
   selectionStart = [x1, y1];
   selectionEnd = [x2, y2];
   selectionActive = false;
+  selectionRegions = [];
   selectedCells = new Set(grid);
   updateSelectionRectFromCells();
 
@@ -2195,6 +2291,14 @@ function getCellsInSelection(){
   if(!bounds) return null;
 
   const cells = [];
+  if(selectionRegions.length){
+    for(const keyStr of grid){
+      const [x, y] = parse(keyStr);
+      if(isCellInSelectionArea(x, y)) cells.push([x - bounds.x1, y - bounds.y1]);
+    }
+    return cells;
+  }
+
   if(selectedCells.size > 0){
     for(const keyStr of selectedCells){
       const [x, y] = parse(keyStr);
@@ -2214,7 +2318,7 @@ function getCellsInSelection(){
 }
 
 function copySelection(cut = false){
-  if(!selectionRect || selectedCells.size === 0){
+  if(!selectionRect || (!selectionRegions.length && selectedCells.size === 0)){
     log("No selection to copy.", "warn");
     return;
   }
@@ -2232,7 +2336,8 @@ function copySelection(cut = false){
     undoStack.push(createSnapshot());
     if(undoStack.length > MAX_HISTORY) undoStack.shift();
 
-    for(const keyStr of selectedCells){
+    for(const [x, y] of cells){
+      const keyStr = key(selectionRect.x1 + x, selectionRect.y1 + y);
       grid.delete(keyStr);
       cellAges.delete(keyStr);
     }
@@ -2299,7 +2404,21 @@ function draw(){
     // keep the helper state on, but do not draw the visual grid at extreme zoom levels
   }
 
-  const activeSelection = selectionActive ? getSelectionBounds() : selectionRect;
+  if(selectionRegions.length){
+    ctx.save();
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    for(const [x1, y1, x2, y2] of getSelectionBoundarySegments()){
+      ctx.moveTo(x1 * cellSize + offsetX, y1 * cellSize + offsetY);
+      ctx.lineTo(x2 * cellSize + offsetX, y2 * cellSize + offsetY);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const activeSelection = selectionActive ? getSelectionBounds() : (!selectionRegions.length ? selectionRect : null);
   if(activeSelection){
     const sx = activeSelection.x1 * cellSize + offsetX;
     const sy = activeSelection.y1 * cellSize + offsetY;
@@ -2307,7 +2426,7 @@ function draw(){
     const sh = activeSelection.height * cellSize;
 
     ctx.save();
-    ctx.strokeStyle = "white";
+    ctx.strokeStyle = subtractSelectionActive ? "#ff7777" : "white";
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 4]);
     ctx.strokeRect(sx, sy, sw, sh);
@@ -3910,7 +4029,9 @@ function updateDataPanel(){
 
   const selLive = selectedCells.size;
   const selBounds = selectionRect || getBoundsFromSet(selectedCells);
-  const selArea = selBounds ? selBounds.width * selBounds.height : 0;
+  const selArea = selectionRegions.length
+    ? selectionRegions.reduce((total, region) => total + region.width * region.height, 0)
+    : selBounds ? selBounds.width * selBounds.height : 0;
   const selDensity = selArea ? Math.round((selLive / selArea) * 1000) / 10 : 0;
 
   document.getElementById("dataSelLive").textContent = selLive || "-";
@@ -3945,6 +4066,7 @@ function toggleWall(){
   let hasWall = false;
   for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
     for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+      if(selectionRegions.length && !isCellInSelectionArea(x, y)) continue;
       if(wallRegions.has(key(x,y))){
         hasWall = true;
         break;
@@ -3956,6 +4078,7 @@ function toggleWall(){
   if(hasWall){
     for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
       for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+        if(selectionRegions.length && !isCellInSelectionArea(x, y)) continue;
         wallRegions.delete(key(x,y));
       }
     }
@@ -3963,6 +4086,7 @@ function toggleWall(){
   } else {
     for(let x = selectionRect.x1; x <= selectionRect.x2; x++){
       for(let y = selectionRect.y1; y <= selectionRect.y2; y++){
+        if(selectionRegions.length && !isCellInSelectionArea(x, y)) continue;
         wallRegions.add(key(x,y));
       }
     }
@@ -4732,10 +4856,24 @@ canvas.addEventListener("mousedown",e=>{
 
     if(action === "replace"){
       selectedCells = new Set(visited);
+      selectionRegions = [];
     } else if(action === "add"){
-      for(const keyStr of visited) selectedCells.add(keyStr);
+      for(const keyStr of visited){
+        selectedCells.add(keyStr);
+        if(selectionRegions.length){
+          const [x, y] = parse(keyStr);
+          if(!isCellInSelectionArea(x, y)) selectionRegions.push(createSelectionRect(x, y, x, y));
+        }
+      }
     } else {
-      for(const keyStr of visited) selectedCells.delete(keyStr);
+      for(const keyStr of visited){
+        selectedCells.delete(keyStr);
+        if(selectionRegions.length){
+          const [x, y] = parse(keyStr);
+          const singleCell = createSelectionRect(x, y, x, y);
+          selectionRegions = selectionRegions.flatMap(region => subtractSelectionRect(region, singleCell));
+        }
+      }
     }
 
     updateSelectionRectFromCells();
@@ -4757,7 +4895,13 @@ canvas.addEventListener("mousedown",e=>{
     selectionActive = true;
     selectionStart = [Math.floor((e.clientX-offsetX)/cellSize), Math.floor((e.clientY-offsetY)/cellSize)];
     selectionEnd = [...selectionStart];
-    selectionRect = null;
+    squareSelectionActive = e.shiftKey;
+    subtractSelectionActive = e.altKey;
+    if(!subtractSelectionActive){
+      selectionRect = null;
+      selectionRegions = [];
+      selectedCells.clear();
+    }
     closeClipboardMenu();
     return;
   }
@@ -4791,7 +4935,18 @@ canvas.addEventListener("mousemove",e=>{
   mouseY = e.clientY;
 
   if(selectionActive){
-    selectionEnd = [Math.floor((e.clientX-offsetX)/cellSize), Math.floor((e.clientY-offsetY)/cellSize)];
+    const current = [Math.floor((e.clientX-offsetX)/cellSize), Math.floor((e.clientY-offsetY)/cellSize)];
+    if (squareSelectionActive) {
+      const dx = current[0] - selectionStart[0];
+      const dy = current[1] - selectionStart[1];
+      const side = Math.max(Math.abs(dx), Math.abs(dy));
+      selectionEnd = [
+        selectionStart[0] + Math.sign(dx || 1) * side,
+        selectionStart[1] + Math.sign(dy || 1) * side
+      ];
+    } else {
+      selectionEnd = current;
+    }
     return;
   }
 
@@ -4839,12 +4994,41 @@ canvas.addEventListener("mouseup", () => {
 
   if(selectionActive){
     selectionActive = false;
-    selectionRect = getSelectionBounds();
+    squareSelectionActive = false;
+    const dragRect = getSelectionBounds();
+
+    if(subtractSelectionActive){
+      subtractSelectionActive = false;
+      if(!selectionRect && selectedCells.size === 0 && selectionRegions.length === 0){
+        log("No selection to subtract from.", "warn");
+        return;
+      }
+
+      if(selectionRegions.length){
+        selectionRegions = selectionRegions.flatMap(region => subtractSelectionRect(region, dragRect));
+      }
+      for(const keyStr of selectedCells){
+        const [x, y] = parse(keyStr);
+        if(isPointInSelectionRect(x, y, dragRect)) selectedCells.delete(keyStr);
+      }
+
+      updateSelectionRectFromCells();
+      if(selectionRect){
+        log(`Subtracted area ${dragRect.width}×${dragRect.height}; selection remains ${selectionRect.width}×${selectionRect.height}`, "action");
+      } else {
+        log("Selection cleared by subtraction.", "action");
+      }
+      return;
+    }
+
+    subtractSelectionActive = false;
+    selectionRect = dragRect;
     if(selectionRect && selectionRect.width > 0 && selectionRect.height > 0){
+      selectionRegions = [createSelectionRect(selectionRect.x1, selectionRect.y1, selectionRect.x2, selectionRect.y2)];
       selectedCells.clear();
       for(const keyStr of grid){
         const [x, y] = parse(keyStr);
-        if(x >= selectionRect.x1 && x <= selectionRect.x2 && y >= selectionRect.y1 && y <= selectionRect.y2){
+        if(isCellInSelectionArea(x, y)){
           selectedCells.add(keyStr);
         }
       }
